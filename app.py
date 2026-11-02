@@ -1,6 +1,7 @@
 import urllib.parse
 import hashlib
 import streamlit as st
+import time
 from supabase import create_client, Client
 
 # Configuração da página móvel
@@ -142,23 +143,52 @@ else:
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
             preco = st.number_input("Preço (R$) *", min_value=0.0, step=0.50, format="%.2f")
             categoria = st.text_input("Categoria *")
-            imagem_url = st.text_input("URL da Foto")
-            
+
+            # Novo componente para upload direto do celular/PC
+            imagem_arquivo = st.file_uploader("Foto do Produto", type=["png", "jpg", "jpeg", "webp"])
+
             if st.form_submit_button("Salvar Produto"):
                 if not nome or not categoria or preco <= 0:
                     st.error("Preencha os campos obrigatórios (*).")
                 else:
-                    supabase.table("produtos").insert({
-                        "vendedor_id": vid,
-                        "nome": nome,
-                        "descricao": descricao,
-                        "preco": preco,
-                        "categoria": categoria,
-                        "imagem_url": imagem_url if imagem_url else None,
-                        "disponivel": True
-                    }).execute()
-                    st.success("Produto cadastrado na sua vitrine!")
-                    st.rerun()
+                    imagem_url = None
+                    upload_succeeded = imagem_arquivo is None
+
+                    # Se o usuário enviou uma imagem
+                    if imagem_arquivo is not None:
+                        try:
+                            # Gerar nome único para o arquivo usando timestamp
+                            ext = imagem_arquivo.name.split(".")[-1]
+                            nome_arquivo = f"{vid}_{int(time.time())}.{ext}"
+                            bytes_data = imagem_arquivo.getvalue()
+
+                            # Faz o upload para o bucket 'produtos' no Supabase
+                            supabase.storage.from_("produtos").upload(
+                                path=nome_arquivo,
+                                file=bytes_data,
+                                file_options={"content-type": imagem_arquivo.type}
+                            )
+
+                            # Gera o link público da foto salva
+                            imagem_url = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
+                            upload_succeeded = True
+                        except Exception as err:
+                            st.error(f"Erro ao enviar foto: {err}")
+
+                    if upload_succeeded:
+                        # Salva o produto no banco com o link da foto gerado
+                        supabase.table("produtos").insert({
+                            "vendedor_id": vid,
+                            "nome": nome,
+                            "descricao": descricao,
+                            "preco": preco,
+                            "categoria": categoria,
+                            "imagem_url": imagem_url,
+                            "disponivel": True
+                        }).execute()
+
+                        st.success("Produto cadastrado com sucesso!")
+                        st.rerun()
 
     with tab_gerenciamento:
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
