@@ -7,7 +7,7 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Vitrine Digital", page_icon="🍲", layout="centered")
 
 # Inicialização da Conexão com Supabase
-@st.cache_resource
+# @st.cache_resource --- teste #
 def init_supabase() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
