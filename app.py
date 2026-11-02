@@ -98,11 +98,22 @@ if "vendedor_id" not in st.session_state:
         with st.form("form_nova_loja"):
             novo_nome = st.text_input("Nome da sua Loja/Negócio *")
             novo_email = st.text_input("Seu E-mail *")
-            novo_whats = st.text_input("WhatsApp para Pedidos (com DDD) *")
+
+            # Restrição visual de caracteres e dica de preenchimento
+            novo_whats = st.text_input(
+                "WhatsApp para Pedidos (Apenas números com DDD) *",
+                max_chars=11,
+                placeholder="11999998888",
+                help="Digite apenas os números, incluindo DDD (ex: 11999998888)"
+            )
             nova_senha = st.text_input("Crie uma Senha *", type="password")
-            
+
             if st.form_submit_button("Criar Conta"):
-                if novo_nome and novo_email and novo_whats and nova_senha:
+                if not (novo_nome and novo_email and novo_whats and nova_senha):
+                    st.warning("Preencha todos os campos obrigatórios (*).")
+                elif not novo_whats.isdigit() or len(novo_whats) not in (10, 11):
+                    st.error("Por favor, insira um número de telefone válido com DDD (10 ou 11 dígitos, ex: 11999998888).")
+                else:
                     try:
                         novo_vendedor = {
                             "nome_loja": novo_nome,
@@ -111,25 +122,20 @@ if "vendedor_id" not in st.session_state:
                             "senha": hash_senha(nova_senha)
                         }
                         supabase.table("vendedores").insert(novo_vendedor).execute()
-                        st.success("Conta criada! Vá para a aba 'Fazer Login' para entrar.")
+                        st.success("Conta criada com sucesso! Vá para a aba 'Fazer Login' para entrar.")
                     except Exception as e:
                         st.error(f"Erro ao criar conta: {e}")
-                else:
-                    st.warning("Preencha todos os campos.")
 
 else:
     # --- PAINEL LOGADO ---
     vid = st.session_state["vendedor_id"]
-    
-    st.title(f"Painel: {st.session_state['nome_loja']}")
-    
-    # 1. Substitua o texto entre aspas pela URL REAL do seu site no ar:
-    URL_BASE = "https://vitrine-digital.streamlit.app"
 
-    # 2. O link_vitrine monta a URL com o ID da loja e o st.success exibe na tela:
+    st.title(f"Painel: {st.session_state['nome_loja']}")
+
+    URL_BASE = "https://vitrine-digital.streamlit.app"
     link_vitrine = f"{URL_BASE}/?loja={vid}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
-    
+
     if st.button("Sair (Logout)"):
         del st.session_state["vendedor_id"]
         del st.session_state["nome_loja"]
