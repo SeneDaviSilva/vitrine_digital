@@ -112,7 +112,7 @@ if "vendedor_id" not in st.session_state:
                         supabase.table("vendedores").insert(novo_vendedor).execute()
                         st.success("Conta criada! Vá para a aba 'Fazer Login' para entrar.")
                     except Exception as e:
-                        st.error("Erro ao criar conta. Este e-mail já pode estar em uso.")
+                        st.error(f"Erro ao criar conta: {e}")
                 else:
                     st.warning("Preencha todos os campos.")
 
