@@ -122,8 +122,11 @@ else:
     
     st.title(f"Painel: {st.session_state['nome_loja']}")
     
-    # Gerar e exibir link exclusivo da vitrine
-    link_vitrine = f"https://SEU_DOMINIO_AQUI.streamlit.app/?loja={vid}"
+    # 1. Substitua o texto entre aspas pela URL REAL do seu site no ar:
+    URL_BASE = "https://vitrine-digital.streamlit.app"
+
+    # 2. O link_vitrine monta a URL com o ID da loja e o st.success exibe na tela:
+    link_vitrine = f"{URL_BASE}/?loja={vid}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
     
     if st.button("Sair (Logout)"):
