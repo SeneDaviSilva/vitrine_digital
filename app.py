@@ -103,8 +103,8 @@ if "vendedor_id" not in st.session_state:
             novo_whats = st.number_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
                 min_value=0,
-                max_value=99999999999,
-                value=0,
+                max_value=11,
+                value=None,
                 step=1,
                 format="%d",
                 help="Digite apenas os números, incluindo DDD (10 ou 11 dígitos)"
