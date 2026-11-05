@@ -2,6 +2,7 @@ import urllib.parse
 import hashlib
 import streamlit as st
 import time
+import re
 from supabase import create_client, Client
 
 # Configuração da página móvel
@@ -99,26 +100,35 @@ if "vendedor_id" not in st.session_state:
             novo_nome = st.text_input("Nome da sua Loja/Negócio *")
             novo_email = st.text_input("Seu E-mail *")
 
-            # Restrição visual de caracteres e dica de preenchimento
             novo_whats = st.text_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
-                max_chars=11,
-                placeholder="11999998888",
-                help="Digite apenas os números, incluindo DDD (ex: 11999998888)"
+                max_chars=15,
+                placeholder="(11) 91234-5678",
+                help="Digite seu numero de telefone com DDD"
             )
             nova_senha = st.text_input("Crie uma Senha *", type="password")
 
             if st.form_submit_button("Criar Conta"):
+                # Verifica se foi inserida qualquer letra (maiúscula ou minúscula)
+                tem_letras = bool(re.search(r'[a-zA-Z]', str(novo_whats)))
+
+                # Valida o formato tradicional brasileiro: (XX) 9XXXX-XXXX ou XX9XXXXXXXX
+                padrao_br = r'^\(?\d{2}\)?\s?(?:9\d{4}|\d{4})-?\d{4}$'
+                formato_valido = bool(re.match(padrao_br, novo_whats.strip()))
                 if not (novo_nome and novo_email and novo_whats and nova_senha):
                     st.warning("Preencha todos os campos obrigatórios (*).")
-                elif not novo_whats.isdigit() or len(novo_whats) not in (10, 11):
-                    st.error("Por favor, insira um número de telefone válido com DDD (10 ou 11 dígitos, ex: 11999998888).")
+                elif tem_letras:
+                    st.error("❌ O campo de WhatsApp não aceita letras! Digite apenas números.")
+                elif not formato_valido:
+                    st.error("❌ Formato de telefone inválido! Utilize o padrão brasileiro com DDD. Exemplo: (11) 99999-8888 ou 11999998888.")
                 else:
+                    # Remove formatação física (parênteses, traços e espaços) deixando apenas os números para gravar no banco
+                    whats_limpo = "".join(filter(str.isdigit, novo_whats))
                     try:
                         novo_vendedor = {
                             "nome_loja": novo_nome,
                             "email": novo_email.lower(),
-                            "whatsapp": novo_whats,
+                            "whatsapp": whats_limpo,
                             "senha": hash_senha(nova_senha)
                         }
                         supabase.table("vendedores").insert(novo_vendedor).execute()
@@ -132,7 +142,7 @@ else:
 
     st.title(f"Painel: {st.session_state['nome_loja']}")
 
-    URL_BASE = "https://vitrine-digital.streamlit.app"
+    URL_BASE = "https://vitrine-digitalm.streamlit.app"
     link_vitrine = f"{URL_BASE}/?loja={vid}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
 
