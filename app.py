@@ -3,6 +3,7 @@ import hashlib
 import streamlit as st
 import time
 import re
+import base64
 from supabase import create_client, Client
 
 # Configuração da página móvel
@@ -88,12 +89,18 @@ if "vendedor_id" not in st.session_state:
         senha_login = st.text_input("Senha", type="password")
         if st.button("Entrar", type="primary"):
             res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
-            if res.data and res.data[0]["senha"] == hash_senha(senha_login):
+            
+            # 1. Verifica se o e-mail existe no banco
+            if not res.data:
+                st.error("❌ E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
+            # 2. Se o e-mail existe, verifica se a senha bate
+            elif res.data[0]["senha"] != hash_senha(senha_login):
+                st.error("❌ Senha incorreta.")
+            # 3. Se tudo estiver certo, faz o login
+            else:
                 st.session_state["vendedor_id"] = res.data[0]["id"]
                 st.session_state["nome_loja"] = res.data[0]["nome_loja"]
                 st.rerun()
-            else:
-                st.error("E-mail ou senha incorretos.")
 
     with aba_cadastro:
         with st.form("form_nova_loja"):
@@ -140,8 +147,13 @@ else:
 
     st.title(f"Painel: {st.session_state['nome_loja']}")
 
-    URL_BASE = "https://vitrine-digitalm.streamlit.app"
-    link_vitrine = f"{URL_BASE}/?loja={vid}"
+    URL_BASE = "https://vitrine-digitalm.streamlit.app" # URL real
+    
+    # Criptografa a URL com Base64
+    id_string = f"vitrine_{vid}"
+    id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
+    
+    link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
 
     if st.button("Sair (Logout)"):
