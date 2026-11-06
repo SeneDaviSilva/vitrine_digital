@@ -26,6 +26,13 @@ st.markdown("""
     .stApp { max-width: 600px; margin: 0 auto; }
     .card-produto { border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; background-color: #ffffff;}
     .preco-tag { color: #2e7d32; font-size: 1.25rem; font-weight: bold; }
+
+    /* NOVO: Força todas as imagens (Logo e Produtos) a serem quadradas e uniformes */
+    div[data-testid="stImage"] img {
+        object-fit: cover !important;
+        aspect-ratio: 1 / 1 !important;
+        border-radius: 10px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -261,7 +268,13 @@ else:
                             "disponivel": True
                         }).execute()
 
-                        st.success("Produto cadastrado com sucesso!")
+                        # --- NOVO: Notificações e Pausa ---
+                        st.toast("✅ Produto cadastrado com sucesso!", icon="🎉")
+                        st.success("Produto cadastrado com sucesso! Atualizando sua vitrine...")
+
+                        # Segura a tela por 2 segundos para a pessoa ler, e depois recarrega
+                        time.sleep(2)
+                        st.rerun()
 
     with tab_gerenciamento:
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
