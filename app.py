@@ -63,22 +63,47 @@ if "loja" in query_params:
     if not produtos:
         st.info("Nenhum produto disponível no momento.")
     else:
-        for p in produtos:
-            with st.container():
-                col1, col2 = st.columns([1, 2])
-                with col1:
-                    img_url = p.get("imagem_url") if p.get("imagem_url") else "https://via.placeholder.com/150?text=Sem+Foto"
-                    st.image(img_url, use_container_width=True)
-                with col2:
-                    st.subheader(p["nome"])
-                    st.write(p.get("descricao", ""))
-                    st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
+        # Pega as categorias únicas e as organiza em ordem alfabética
+        categorias = sorted(list(set(p["categoria"] for p in produtos)))
+        
+        # Cria uma sessão (Header) para cada categoria
+        for cat in categorias:
+            st.header(f"📌 {cat}")
+            
+            # Filtra apenas os produtos desta categoria
+            produtos_cat = [p for p in produtos if p["categoria"] == cat]
+            
+            for p in produtos_cat:
+                with st.container():
+                    col1, col2 = st.columns([1, 2])
                     
-                    telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
-                    texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
-                    wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
-                    st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
-                st.divider()
+                    with col1:
+                        # Pega as 3 imagens e filtra as que não existem (None)
+                        urls_img = [p.get("imagem_url"), p.get("imagem_url_2"), p.get("imagem_url_3")]
+                        urls_validas = [u for u in urls_img if u]
+                        
+                        if urls_validas:
+                            # Se tiver mais de uma, cria Abas (estilo carrossel mobile)
+                            if len(urls_validas) > 1:
+                                abas_img = st.tabs([f"Foto {i+1}" for i in range(len(urls_validas))])
+                                for i, aba in enumerate(abas_img):
+                                    with aba:
+                                        st.image(urls_validas[i], use_container_width=True)
+                            else:
+                                st.image(urls_validas[0], use_container_width=True)
+                        else:
+                            st.image("https://via.placeholder.com/150?text=Sem+Foto", use_container_width=True)
+                            
+                    with col2:
+                        st.subheader(p["nome"])
+                        st.write(p.get("descricao", ""))
+                        st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
+                        
+                        telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
+                        texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
+                        wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
+                        st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
+                    st.divider()
     
     # Encerra o script para não carregar a área de login/admin
     st.stop()
