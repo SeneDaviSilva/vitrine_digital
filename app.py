@@ -180,7 +180,7 @@ else:
 
     st.title(f"Painel: {st.session_state['nome_loja']}")
 
-    URL_BASE = "https://vitrine-digitalm.streamlit.app" # URL real
+    URL_BASE = "https://vitrine-digital.streamlit.app" # URL real
     
     # Criptografa a URL com Base64
     id_string = f"vitrine_{vid}"
@@ -200,54 +200,56 @@ else:
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
-            preco = st.number_input("Preço (R$) *", value = None, min_value=0.0, step=0.50, format="%.2f")
+            preco = st.number_input("Preço (R$) *", min_value=0.0, step=0.50, format="%.2f", value=None)
             categoria = st.text_input("Categoria *")
 
-            # Novo componente para upload direto do celular/PC
-            imagem_arquivo = st.file_uploader("Foto do Produto", type=["png", "jpg", "jpeg", "webp"])
+            # Ativa o recebimento de múltiplos arquivos
+            imagens_arquivo = st.file_uploader("Fotos do Produto (Máximo 3)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
 
             if st.form_submit_button("Salvar Produto"):
                 if not nome or not categoria or preco is None or preco <= 0:
                     st.error("Preencha os campos obrigatórios (*).")
+                elif len(imagens_arquivo) > 3:
+                    st.error("❌ Você pode enviar no máximo 3 fotos por produto!")
                 else:
-                    imagem_url = None
-                    upload_succeeded = imagem_arquivo is None
+                    # Prepara uma lista vazia para até 3 fotos
+                    urls_geradas = [None, None, None]
+                    upload_succeeded = True
 
-                    # Se o usuário enviou uma imagem
-                    if imagem_arquivo is not None:
-                        try:
-                            # Gerar nome único para o arquivo usando timestamp
-                            ext = imagem_arquivo.name.split(".")[-1]
-                            nome_arquivo = f"{vid}_{int(time.time())}.{ext}"
-                            bytes_data = imagem_arquivo.getvalue()
+                    # Loop para salvar cada foto separadamente
+                    if imagens_arquivo:
+                        for idx, img_file in enumerate(imagens_arquivo):
+                            try:
+                                ext = img_file.name.split(".")[-1]
+                                nome_arquivo = f"{vid}_{int(time.time())}_{idx}.{ext}"
+                                bytes_data = img_file.getvalue()
 
-                            # Faz o upload para o bucket 'produtos' no Supabase
-                            supabase.storage.from_("produtos").upload(
-                                path=nome_arquivo,
-                                file=bytes_data,
-                                file_options={"content-type": imagem_arquivo.type}
-                            )
-
-                            # Gera o link público da foto salva
-                            imagem_url = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
-                            upload_succeeded = True
-                        except Exception as err:
-                            st.error(f"Erro ao enviar foto: {err}")
+                                supabase.storage.from_("produtos").upload(
+                                    path=nome_arquivo,
+                                    file=bytes_data,
+                                    file_options={"content-type": img_file.type}
+                                )
+                                urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
+                            except Exception as err:
+                                st.error(f"Erro ao enviar foto {idx+1}: {err}")
+                                upload_succeeded = False
+                                break
 
                     if upload_succeeded:
-                        # Salva o produto no banco com o link da foto gerado
+                        # Salva o produto gravando até 3 URLs
                         supabase.table("produtos").insert({
                             "vendedor_id": vid,
                             "nome": nome,
                             "descricao": descricao,
                             "preco": preco,
                             "categoria": categoria,
-                            "imagem_url": imagem_url,
+                            "imagem_url": urls_geradas[0],
+                            "imagem_url_2": urls_geradas[1],
+                            "imagem_url_3": urls_geradas[2],
                             "disponivel": True
                         }).execute()
 
                         st.success("Produto cadastrado com sucesso!")
-                        st.rerun()
 
     with tab_gerenciamento:
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
