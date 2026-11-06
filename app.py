@@ -34,7 +34,18 @@ st.markdown("""
 # ---------------------------------------------------------
 query_params = st.query_params
 if "loja" in query_params:
-    loja_id = query_params["loja"]
+    loja_hash = query_params["loja"]
+    
+    # Reverte o Base64 para descobrir o ID real
+    try:
+        decodificado = base64.urlsafe_b64decode(loja_hash.encode()).decode()
+        loja_id = decodificado.replace("vitrine_", "") # Remove a palavra e sobra só o número
+    except:
+        st.error("❌ Link da loja inválido ou corrompido!")
+        st.stop()
+    
+    # Buscar dados da loja
+    res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
     
     # Buscar dados da loja
     res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
