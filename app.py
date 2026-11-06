@@ -140,33 +140,30 @@ if "vendedor_id" not in st.session_state:
             novo_nome = st.text_input("Nome da sua Loja/Negócio *")
             novo_email = st.text_input("Seu E-mail *")
 
-            novo_whats = st.number_input(
+            novo_whats = st.text_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
-                min_value=0,
-                max_value=11,
-                value=None,
-                step=1,
-                format="%d",
-                help="Digite apenas os números, incluindo DDD (10 ou 11 dígitos)"
+                max_chars=11,  # Trava o campo em no máximo 11 dígitos
+                placeholder="11999998888",
+                help="Digite APENAS números, sem espaços ou traços."
             )
             nova_senha = st.text_input("Crie uma Senha *", type="password")
 
             if st.form_submit_button("Criar Conta"):
-                telefone = str(novo_whats)
-                padrao_br = r'^\d{2}(?:9\d{4}|\d{4})\d{4}$'
-                formato_valido = bool(re.match(padrao_br, telefone))
-
+                
                 if not (novo_nome and novo_email and novo_whats and nova_senha):
                     st.warning("Preencha todos os campos obrigatórios (*).")
-                elif not formato_valido:
-                    st.error("❌ Formato de telefone inválido! Digite 10 ou 11 números, incluindo o DDD. Exemplo: 11999998888.")
+                # A função .isdigit() garante que o usuário digitou SOMENTE números (barrando letras e símbolos)
+                elif not novo_whats.isdigit():
+                    st.error("❌ O campo de WhatsApp não aceita letras ou símbolos! Digite APENAS números.")
+                # Valida se o usuário digitou o DDD + Telefone (10 ou 11 dígitos)
+                elif len(novo_whats) < 10:
+                    st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
                 else:
-                    whats_limpo = telefone
                     try:
                         novo_vendedor = {
                             "nome_loja": novo_nome,
                             "email": novo_email.lower(),
-                            "whatsapp": whats_limpo,
+                            "whatsapp": novo_whats, # Já está limpo, apenas números
                             "senha": hash_senha(nova_senha)
                         }
                         supabase.table("vendedores").insert(novo_vendedor).execute()
