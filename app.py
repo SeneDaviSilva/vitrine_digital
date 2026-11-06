@@ -47,9 +47,6 @@ if "loja" in query_params:
     # Buscar dados da loja
     res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
     
-    # Buscar dados da loja
-    res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
-    
     if not res_loja.data:
         st.error("Loja não encontrada!")
         st.stop()
