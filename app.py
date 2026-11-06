@@ -50,10 +50,19 @@ if "loja" in query_params:
     if not res_loja.data:
         st.error("Loja não encontrada!")
         st.stop()
-        
+
     loja = res_loja.data[0]
-    st.title(f"🏪 {loja['nome_loja']}")
-    st.caption("Faça sua encomenda direto pelo WhatsApp!")
+
+    # --- Cabeçalho com Logo e Descrição ---
+    col_logo, col_info = st.columns([1, 3])
+    with col_logo:
+        logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
+        st.image(logo, use_container_width=True)
+    with col_info:
+        st.title(f"🏪 {loja['nome_loja']}")
+        if loja.get("descricao_loja"):
+            st.write(loja["descricao_loja"])
+        st.caption("Faça sua encomenda direto pelo WhatsApp!")
     st.divider()
     
     # Buscar produtos desta loja específica
@@ -149,27 +158,33 @@ if "vendedor_id" not in st.session_state:
             nova_senha = st.text_input("Crie uma Senha *", type="password")
 
             if st.form_submit_button("Criar Conta"):
-                
                 if not (novo_nome and novo_email and novo_whats and nova_senha):
                     st.warning("Preencha todos os campos obrigatórios (*).")
-                # A função .isdigit() garante que o usuário digitou SOMENTE números (barrando letras e símbolos)
                 elif not novo_whats.isdigit():
                     st.error("❌ O campo de WhatsApp não aceita letras ou símbolos! Digite APENAS números.")
-                # Valida se o usuário digitou o DDD + Telefone (10 ou 11 dígitos)
                 elif len(novo_whats) < 10:
                     st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
                 else:
-                    try:
-                        novo_vendedor = {
-                            "nome_loja": novo_nome,
-                            "email": novo_email.lower(),
-                            "whatsapp": novo_whats, # Já está limpo, apenas números
-                            "senha": hash_senha(nova_senha)
-                        }
-                        supabase.table("vendedores").insert(novo_vendedor).execute()
-                        st.success("Conta criada com sucesso! Vá para a aba 'Fazer Login' para entrar.")
-                    except Exception as e:
-                        st.error(f"Erro ao criar conta: {e}")
+                    # --- NOVO: Verifica se e-mail ou WhatsApp já existem no banco ---
+                    res_email = supabase.table("vendedores").select("id").eq("email", novo_email.lower()).execute()
+                    res_whats = supabase.table("vendedores").select("id").eq("whatsapp", novo_whats).execute()
+
+                    if res_email.data:
+                        st.error("❌ Este e-mail já está cadastrado em outra conta!")
+                    elif res_whats.data:
+                        st.error("❌ Este WhatsApp já está cadastrado em outra loja!")
+                    else:
+                        try:
+                            novo_vendedor = {
+                                "nome_loja": novo_nome,
+                                "email": novo_email.lower(),
+                                "whatsapp": novo_whats,
+                                "senha": hash_senha(nova_senha)
+                            }
+                            supabase.table("vendedores").insert(novo_vendedor).execute()
+                            st.success("Conta criada com sucesso! Vá para a aba 'Fazer Login' para entrar.")
+                        except Exception as e:
+                            st.error(f"Erro ao criar conta: {e}")
 
 else:
     # --- PAINEL LOGADO ---
@@ -191,7 +206,7 @@ else:
         del st.session_state["nome_loja"]
         st.rerun()
 
-    tab_cadastro, tab_gerenciamento = st.tabs(["Cadastrar Novo Item", "Meus Produtos"])
+    tab_cadastro, tab_gerenciamento, tab_config = st.tabs(["Cadastrar Novo Item", "Meus Produtos", "⚙️ Configurações da Loja"])
 
     with tab_cadastro:
         with st.form("form_produto", clear_on_submit=True):
@@ -330,3 +345,50 @@ else:
                                     st.success("Produto atualizado com sucesso!")
                                     st.rerun()
                 st.divider()
+
+                # --- Configurações da Loja ---
+    with tab_config:
+        # Puxa os dados atuais da vendedora no banco
+        res_minha_loja = supabase.table("vendedores").select("*").eq("id", vid).execute()
+        dados_loja = res_minha_loja.data[0]
+
+        with st.form("form_config_loja"):
+            st.subheader("Personalizar Perfil da Vitrine")
+            edit_nome_loja = st.text_input("Nome da Loja", value=dados_loja['nome_loja'])
+            edit_desc_loja = st.text_area(
+                "Apresentação / Descrição da Loja",
+                value=dados_loja.get('descricao_loja', ''),
+                help="Ex: Bolos artesanais feitos com carinho. Atendimento das 08h às 18h."
+            )
+
+            st.caption("Para manter a logo atual, não envie nada. Para trocar, envie uma nova foto.")
+            edit_logo = st.file_uploader("Logo / Foto de Perfil da Loja", type=["png", "jpg", "jpeg", "webp"])
+
+            if st.form_submit_button("Salvar Configurações"):
+                update_loja = {
+                    "nome_loja": edit_nome_loja,
+                    "descricao_loja": edit_desc_loja
+                }
+                upload_succeeded = True
+
+                if edit_logo:
+                    try:
+                        ext = edit_logo.name.split(".")[-1]
+                        nome_arquivo = f"logo_{vid}_{int(time.time())}.{ext}"
+                        # Reaproveitamos o bucket "produtos" para armazenar as logos
+                        supabase.storage.from_("produtos").upload(
+                            path=nome_arquivo,
+                            file=edit_logo.getvalue(),
+                            file_options={"content-type": edit_logo.type}
+                        )
+                        update_loja["logo_url"] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
+                    except Exception as e:
+                        st.error(f"Erro ao enviar logo: {e}")
+                        upload_succeeded = False
+
+                if upload_succeeded:
+                    # Atualiza o banco e o nome salvo na sessão atual
+                    supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
+                    st.session_state["nome_loja"] = edit_nome_loja
+                    st.success("Perfil da loja atualizado com sucesso!")
+                    st.rerun()
