@@ -155,14 +155,14 @@ else:
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
-            preco = st.number_input("Preço (R$) *", min_value=0.0, step=0.50, format="%.2f")
+            preco = st.number_input("Preço (R$) *", value = None, min_value=0.0, step=0.50, format="%.2f")
             categoria = st.text_input("Categoria *")
 
             # Novo componente para upload direto do celular/PC
             imagem_arquivo = st.file_uploader("Foto do Produto", type=["png", "jpg", "jpeg", "webp"])
 
             if st.form_submit_button("Salvar Produto"):
-                if not nome or not categoria or preco <= 0:
+                if not nome or not categoria or preco is None or preco <= 0:
                     st.error("Preencha os campos obrigatórios (*).")
                 else:
                     imagem_url = None
