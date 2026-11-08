@@ -268,7 +268,7 @@ else:
                             "disponivel": True
                         }).execute()
 
-                        # --- NOVO: Notificações e Pausa ---
+                        # --- Notificações e Pausa ---
                         st.toast("✅ Produto cadastrado com sucesso!", icon="🎉")
                         st.success("Produto cadastrado com sucesso! Atualizando sua vitrine...")
 
@@ -277,8 +277,16 @@ else:
                         st.rerun()
 
     with tab_gerenciamento:
-        res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
-        meus_produtos = res_meus_prod.data
+        # Executa a atualização no banco de dados
+                                supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
+                                
+                                # ---Notificação de Edição e Pausa ---
+                                st.toast("✅ Produto atualizado!", icon="✏️")
+                                st.success("Alterações salvas com sucesso! Atualizando...")
+                                
+                                # Segura a tela por 2 segundos e recarrega
+                                time.sleep(2)
+                                st.rerun()
 
         if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
@@ -297,7 +305,7 @@ else:
                         supabase.table("produtos").delete().eq("id", item["id"]).execute()
                         st.rerun()
 
-                # --- NOVO: Painel Retrátil de Edição ---
+                # --- Painel Retrátil de Edição ---
                 with st.expander("✏️ Editar Produto"):
                     with st.form(f"form_edit_{item['id']}", clear_on_submit=False):
                         edit_nome = st.text_input("Nome", value=item['nome'])
