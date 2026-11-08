@@ -85,55 +85,41 @@ if "loja" in query_params:
         
         for cat in categorias:
             st.header(f"📌 {cat}")
+            
+            # 1. Filtra apenas os produtos desta categoria
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
             
-            for cat in categorias:
-                st.header(f"📌 {cat}")
+            # 2. Ordena os produtos em ordem alfabética (A-Z) ignorando maiúsculas e
+            # minúsculas
+            produtos_cat = sorted(produtos_cat, key=lambda x: x["nome"].lower())
             
-                # 1. Filtra apenas os produtos desta categoria
-                produtos_cat = [p for p in produtos if p["categoria"] == cat]
-            
-                # 2. NOVO: Ordena os produtos em ordem alfabética (A-Z) ignorando maiúsculas e minúsculas
-                produtos_cat = sorted(produtos_cat, key=lambda x: x["nome"].lower())
-            
-                for p in produtos_cat:
-                    with st.container():
-                        col1, col2 = st.columns([1, 2])
+            for p in produtos_cat:
+                with st.container():
+                    col1, col2 = st.columns([1, 2])
                     
-                        with col1:
-                            urls_img = [p.get("imagem_url"), p.get("imagem_url_2"), p.get("imagem_url_3")]
-                            urls_validas = [u for u in urls_img if u]
+                    with col1:
+                        urls_img = [p.get("imagem_url"), p.get("imagem_url_2"), p.get("imagem_url_3")]
+                        urls_validas = [u for u in urls_img if u]
                         
-                            def render_img_clicavel(url):
-                                st.markdown(f'''
-                                    <a href="{url}" target="_blank">
-                                     <img src="{url}" style="width:100%; border-radius: 10px; object-fit: cover; aspect-ratio: 1/1; cursor: pointer; border: 1px solid #eee;">
-                                    </a>
-                                ''', unsafe_allow_html=True)
+                        def render_img_clicavel(url):
+                            st.markdown(f'''
+                                <a href="{url}" target="_blank">
+                                <img src="{url}" style="width:100%; border-radius: 10px; object-fit: cover; aspect-ratio: 1/1; cursor: pointer; border: 1px solid #eee;">
+                                </a>
+                            ''', unsafe_allow_html=True)
                         
-                            if urls_validas:
-                                render_img_clicavel(urls_validas[0])
+                        if urls_validas:
+                            render_img_clicavel(urls_validas[0])
                             
-                                if len(urls_validas) > 1:
-                                    mini_cols = st.columns(len(urls_validas) - 1)
-                                    for i, m_col in enumerate(mini_cols):
-                                        with m_col:
-                                            render_img_clicavel(urls_validas[i+1])
-                            else:
-                                st.markdown('''
-                                    <img src="https://via.placeholder.com/150?text=Sem+Foto" style="width:100%; border-radius: 10px; object-fit: cover; aspect-ratio: 1/1; border: 1px solid #eee;">
-                                ''', unsafe_allow_html=True)
-                            
-                        with col2:
-                            st.subheader(p["nome"])
-                            st.write(p.get("descricao", ""))
-                            st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
-                        
-                            telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
-                            texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
-                            wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
-                            st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
-                st.divider()
+                            if len(urls_validas) > 1:
+                                mini_cols = st.columns(len(urls_validas) - 1)
+                                for i, m_col in enumerate(mini_cols):
+                                    with m_col:
+                                        render_img_clicavel(urls_validas[i+1])
+                        else:
+                            st.markdown('''
+                                <img src="https://via.placeholder.com/150?text=Sem+Foto" style="width:100%; border-radius: 10px; object-fit: cover; aspect-ratio: 1/1; border: 1px solid #eee;">
+                            ''', unsafe_allow_html=True)
                             
                     with col2:
                         st.subheader(p["nome"])
@@ -351,7 +337,8 @@ else:
                         st.rerun()
 
     with tab_gerenciamento:
-        # Removemos o .order("id") antigo para fazermos a ordenação inteligente no Python
+        # Removemos o .order("id") antigo para fazermos a ordenação inteligente no
+        # Python
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).execute()
         meus_produtos = res_meus_prod.data
 
