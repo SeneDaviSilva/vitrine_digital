@@ -193,7 +193,7 @@ else:
     st.title(f"Painel: {st.session_state['nome_loja']}")
 
     # Mostra o link da vitrine
-    URL_BASE = "https://vitrine-digitalm.streamlit.app"
+    URL_BASE = "https://vitrine-digital.streamlit.app"
     id_string = f"vitrine_{vid}"
     id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
