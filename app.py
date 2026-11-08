@@ -10,13 +10,12 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Vitrine Digital", page_icon="🍲", layout="centered")
 
 # Inicialização da Conexão com Supabase
-# @st.cache_resource --- teste #
 def init_supabase() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_supabase()
 
-# Função utilitária para hash de senha (segurança básica)
+# Função utilitária para hash de senha
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
@@ -27,7 +26,7 @@ st.markdown("""
     .card-produto { border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; background-color: #ffffff;}
     .preco-tag { color: #2e7d32; font-size: 1.25rem; font-weight: bold; }
 
-    /* NOVO: Força todas as imagens (Logo e Produtos) a serem quadradas e uniformes */
+    /* Força todas as imagens (Logo e Produtos) a serem quadradas e uniformes */
     div[data-testid="stImage"] img {
         object-fit: cover !important;
         aspect-ratio: 1 / 1 !important;
@@ -46,7 +45,7 @@ if "loja" in query_params:
     # Reverte o Base64 para descobrir o ID real
     try:
         decodificado = base64.urlsafe_b64decode(loja_hash.encode()).decode()
-        loja_id = decodificado.replace("vitrine_", "") # Remove a palavra e sobra só o número
+        loja_id = decodificado.replace("vitrine_", "") 
     except:
         st.error("❌ Link da loja inválido ou corrompido!")
         st.stop()
@@ -72,21 +71,17 @@ if "loja" in query_params:
         st.caption("Faça sua encomenda direto pelo WhatsApp!")
     st.divider()
     
-    # Buscar produtos desta loja específica
+    # Buscar produtos desta loja
     res_prod = supabase.table("produtos").select("*").eq("vendedor_id", loja_id).eq("disponivel", True).execute()
     produtos = res_prod.data
 
     if not produtos:
         st.info("Nenhum produto disponível no momento.")
     else:
-        # Pega as categorias únicas e as organiza em ordem alfabética
         categorias = sorted(list(set(p["categoria"] for p in produtos)))
         
-        # Cria uma sessão (Header) para cada categoria
         for cat in categorias:
             st.header(f"📌 {cat}")
-            
-            # Filtra apenas os produtos desta categoria
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
             
             for p in produtos_cat:
@@ -94,15 +89,12 @@ if "loja" in query_params:
                     col1, col2 = st.columns([1, 2])
                     
                     with col1:
-                        # Pega as 3 imagens e filtra as que não existem (None)
                         urls_img = [p.get("imagem_url"), p.get("imagem_url_2"), p.get("imagem_url_3")]
                         urls_validas = [u for u in urls_img if u]
                         
                         if urls_validas:
-                            # UX Melhorada: Imagem principal sempre em destaque
                             st.image(urls_validas[0], use_container_width=True)
                             
-                            # Se tiver fotos extras, cria uma linha de miniaturas embaixo
                             if len(urls_validas) > 1:
                                 mini_cols = st.columns(len(urls_validas) - 1)
                                 for i, m_col in enumerate(mini_cols):
@@ -120,9 +112,8 @@ if "loja" in query_params:
                         texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
                         wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
                         st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
-                    st.divider()
+                st.divider()
     
-    # Encerra o script para não carregar a área de login/admin
     st.stop()
 
 # ---------------------------------------------------------
@@ -140,13 +131,10 @@ if "vendedor_id" not in st.session_state:
         if st.button("Entrar", type="primary"):
             res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
             
-            # 1. Verifica se o e-mail existe no banco
             if not res.data:
                 st.error("❌ E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
-            # 2. Se o e-mail existe, verifica se a senha bate
             elif res.data[0]["senha"] != hash_senha(senha_login):
                 st.error("❌ Senha incorreta.")
-            # 3. Se tudo estiver certo, faz o login
             else:
                 st.session_state["vendedor_id"] = res.data[0]["id"]
                 st.session_state["nome_loja"] = res.data[0]["nome_loja"]
@@ -159,7 +147,7 @@ if "vendedor_id" not in st.session_state:
 
             novo_whats = st.text_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
-                max_chars=11,  # Trava o campo em no máximo 11 dígitos
+                max_chars=11,
                 placeholder="11999998888",
                 help="Digite APENAS números, sem espaços ou traços."
             )
@@ -173,7 +161,6 @@ if "vendedor_id" not in st.session_state:
                 elif len(novo_whats) < 10:
                     st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
                 else:
-                    # --- NOVO: Verifica se e-mail ou WhatsApp já existem no banco ---
                     res_email = supabase.table("vendedores").select("id").eq("email", novo_email.lower()).execute()
                     res_whats = supabase.table("vendedores").select("id").eq("whatsapp", novo_whats).execute()
 
@@ -197,6 +184,25 @@ if "vendedor_id" not in st.session_state:
 else:
     # --- PAINEL LOGADO ---
     vid = st.session_state["vendedor_id"]
+
+    # Verifica e dispara notificações guardadas na memória
+    if "msg_sucesso" in st.session_state:
+        st.toast(st.session_state["msg_sucesso"], icon="✅")
+        del st.session_state["msg_sucesso"]
+
+    st.title(f"Painel: {st.session_state['nome_loja']}")
+
+    # Mostra o link da vitrine
+    URL_BASE = "https://vitrine-digitalm.streamlit.app"
+    id_string = f"vitrine_{vid}"
+    id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
+    link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
+    st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
+
+    if st.button("Sair (Logout)"):
+        del st.session_state["vendedor_id"]
+        del st.session_state["nome_loja"]
+        st.rerun()
 
     # --- Janela Flutuante (Modal) de Edição de Produto ---
     @st.dialog("✏️ Editar Produto")
@@ -261,10 +267,9 @@ else:
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
-            preco = st.number_input("Preço (R$) *", min_value=0.0, step=0.50, format="%.2f", value=None)
+            preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=None)
             categoria = st.text_input("Categoria *")
 
-            # Ativa o recebimento de múltiplos arquivos
             imagens_arquivo = st.file_uploader("Fotos do Produto (Máximo 3)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
 
             if st.form_submit_button("Salvar Produto"):
@@ -273,11 +278,9 @@ else:
                 elif len(imagens_arquivo) > 3:
                     st.error("❌ Você pode enviar no máximo 3 fotos por produto!")
                 else:
-                    # Prepara uma lista vazia para até 3 fotos
                     urls_geradas = [None, None, None]
                     upload_succeeded = True
 
-                    # Loop para salvar cada foto separadamente
                     if imagens_arquivo:
                         for idx, img_file in enumerate(imagens_arquivo):
                             try:
@@ -297,7 +300,6 @@ else:
                                 break
 
                     if upload_succeeded:
-                        # Salva o produto gravando até 3 URLs
                         supabase.table("produtos").insert({
                             "vendedor_id": vid,
                             "nome": nome,
@@ -310,52 +312,35 @@ else:
                             "disponivel": True
                         }).execute()
 
-                        # --- Notificações e Pausa ---
-                        st.toast("✅ Produto cadastrado com sucesso!", icon="🎉")
-                        st.success("Produto cadastrado com sucesso! Atualizando sua vitrine...")
-
-                        # Segura a tela por 2 segundos para a pessoa ler, e depois recarrega
-                        time.sleep(2)
+                        st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
     with tab_gerenciamento:
-        # Executa a atualização no banco de dados
-                                supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
-                                
-                                # ---Notificação de Edição e Pausa ---
-                                st.toast("✅ Produto atualizado!", icon="✏️")
-                                st.success("Alterações salvas com sucesso! Atualizando...")
-                                
-                                # Segura a tela por 2 segundos e recarrega
-                                time.sleep(2)
-                                st.rerun()
+        res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
+        meus_produtos = res_meus_prod.data
 
-    if not meus_produtos:
+        if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
-    else:
-                    for item in meus_produtos:
-                        # Mudamos para 4 colunas para caber o botão de edição ao lado do de apagar
-                        c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
-                        with c1:
-                            st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
-                        with c2:
-                            novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
-                            if novo_status != item["disponivel"]:
-                                supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
-                                st.rerun()
-                        with c3:
-                            # Botão que "chama" a janela flutuante
-                            if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
-                                modal_editar_produto(item)
-                        with c4:
-                            if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
-                                supabase.table("produtos").delete().eq("id", item["id"]).execute()
-                                st.rerun()
-                        st.divider()
+        else:
+            for item in meus_produtos:
+                c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
+                with c1:
+                    st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
+                with c2:
+                    novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
+                    if novo_status != item["disponivel"]:
+                        supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
+                        st.rerun()
+                with c3:
+                    if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
+                        modal_editar_produto(item)
+                with c4:
+                    if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
+                        supabase.table("produtos").delete().eq("id", item["id"]).execute()
+                        st.rerun()
+                st.divider()
 
-                # --- Configurações da Loja ---
     with tab_config:
-        # Puxa os dados atuais da vendedora no banco
         res_minha_loja = supabase.table("vendedores").select("*").eq("id", vid).execute()
         dados_loja = res_minha_loja.data[0]
 
@@ -382,7 +367,6 @@ else:
                     try:
                         ext = edit_logo.name.split(".")[-1]
                         nome_arquivo = f"logo_{vid}_{int(time.time())}.{ext}"
-                        # Reaproveitamos o bucket "produtos" para armazenar as logos
                         supabase.storage.from_("produtos").upload(
                             path=nome_arquivo,
                             file=edit_logo.getvalue(),
@@ -394,8 +378,7 @@ else:
                         upload_succeeded = False
 
                 if upload_succeeded:
-                    # Atualiza o banco e o nome salvo na sessão atual
                     supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
                     st.session_state["nome_loja"] = edit_nome_loja
-                    st.success("Perfil da loja atualizado com sucesso!")
+                    st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
                     st.rerun()
