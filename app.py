@@ -63,7 +63,10 @@ if "loja" in query_params:
     col_logo, col_info = st.columns([1, 3])
     with col_logo:
         logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
-        st.image(logo, use_container_width=True)
+        # Renderiza a logo redonda usando HTML
+        st.markdown(f'''
+            <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 3px solid #f0f2f6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        ''', unsafe_allow_html=True)
     with col_info:
         st.title(f"🏪 {loja['nome_loja']}")
         if loja.get("descricao_loja"):
