@@ -288,9 +288,9 @@ else:
                                 time.sleep(2)
                                 st.rerun()
 
-        if not meus_produtos:
+    if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
-        else:
+    else:
             for item in meus_produtos:
                 c1, c2, c3 = st.columns([3, 2, 1])
                 with c1:
