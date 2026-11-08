@@ -351,29 +351,41 @@ else:
                         st.rerun()
 
     with tab_gerenciamento:
-        res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).order("id", desc=True).execute()
+        # Removemos o .order("id") antigo para fazermos a ordenação inteligente no Python
+        res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).execute()
         meus_produtos = res_meus_prod.data
 
         if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
         else:
-            for item in meus_produtos:
-                c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
-                with c1:
-                    st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
-                with c2:
-                    novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
-                    if novo_status != item["disponivel"]:
-                        supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
-                        st.rerun()
-                with c3:
-                    if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
-                        modal_editar_produto(item)
-                with c4:
-                    if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
-                        supabase.table("produtos").delete().eq("id", item["id"]).execute()
-                        st.rerun()
-                st.divider()
+            # 1. Pega as categorias únicas e ordena de A a Z
+            categorias_admin = sorted(list(set(p["categoria"] for p in meus_produtos)))
+            
+            for cat in categorias_admin:
+                # Cria um mini-cabeçalho para cada categoria no painel
+                st.markdown(f"#### 📁 {cat}") 
+                
+                # 2. Filtra os produtos dessa categoria e também ordena por nome (A-Z)
+                produtos_cat_admin = [p for p in meus_produtos if p["categoria"] == cat]
+                produtos_cat_admin = sorted(produtos_cat_admin, key=lambda x: x["nome"].lower())
+                
+                for item in produtos_cat_admin:
+                    c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
+                    with c1:
+                        st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
+                    with c2:
+                        novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
+                        if novo_status != item["disponivel"]:
+                            supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
+                            st.rerun()
+                    with c3:
+                        if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
+                            modal_editar_produto(item)
+                    with c4:
+                        if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
+                            supabase.table("produtos").delete().eq("id", item["id"]).execute()
+                            st.rerun()
+                    st.divider()
 
     with tab_config:
         res_minha_loja = supabase.table("vendedores").select("*").eq("id", vid).execute()
