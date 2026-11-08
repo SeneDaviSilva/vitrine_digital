@@ -353,68 +353,6 @@ else:
                                 st.rerun()
                         st.divider()
 
-                # --- Painel Retrátil de Edição ---
-                with st.expander("✏️ Editar Produto"):
-                    with st.form(f"form_edit_{item['id']}", clear_on_submit=False):
-                        edit_nome = st.text_input("Nome", value=item['nome'])
-                        edit_desc = st.text_area("Descrição", value=item.get('descricao', ''))
-                        edit_preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=float(item['preco']))
-                        edit_cat = st.text_input("Categoria", value=item['categoria'])
-
-                        st.caption("Para manter as fotos atuais, não envie nada. Para trocar, envie até 3 novas fotos.")
-                        edit_imagens = st.file_uploader(
-                            "Substituir Fotos (Máximo 3)",
-                            type=["png", "jpg", "jpeg", "webp"],
-                            accept_multiple_files=True,
-                            key=f"up_{item['id']}"
-                        )
-
-                        if st.form_submit_button("Salvar Alterações"):
-                            if not edit_nome or not edit_cat or edit_preco <= 0:
-                                st.error("Preencha os campos obrigatórios (Nome, Preço e Categoria).")
-                            elif len(edit_imagens) > 3:
-                                st.error("❌ Envie no máximo 3 fotos!")
-                            else:
-                                update_data = {
-                                    "nome": edit_nome,
-                                    "descricao": edit_desc,
-                                    "preco": edit_preco,
-                                    "categoria": edit_cat
-                                }
-                                upload_succeeded = True
-                                # Se a vendedora enviou novas imagens, substituímos as antigas
-                                if edit_imagens:
-                                    urls_geradas = [None, None, None]
-                                    for idx, img_file in enumerate(edit_imagens):
-                                        try:
-                                            ext = img_file.name.split(".")[-1]
-                                            # Gera um nome único para a nova foto
-                                            nome_arquivo = f"{vid}_edit_{int(time.time())}_{idx}.{ext}"
-                                            bytes_data = img_file.getvalue()
-
-                                            supabase.storage.from_("produtos").upload(
-                                                path=nome_arquivo,
-                                                file=bytes_data,
-                                                file_options={"content-type": img_file.type}
-                                            )
-                                            urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
-                                        except Exception as err:
-                                            st.error(f"Erro ao atualizar foto {idx+1}: {err}")
-                                            upload_succeeded = False
-                                            break
-
-                                    if upload_succeeded:
-                                        update_data["imagem_url"] = urls_geradas[0]
-                                        update_data["imagem_url_2"] = urls_geradas[1]
-                                        update_data["imagem_url_3"] = urls_geradas[2]
-
-                                if upload_succeeded:
-                                    # Executa a atualização no banco de dados
-                                    supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
-                                    st.success("Produto atualizado com sucesso!")
-                                    st.rerun()
-                st.divider()
-
                 # --- Configurações da Loja ---
     with tab_config:
         # Puxa os dados atuais da vendedora no banco
