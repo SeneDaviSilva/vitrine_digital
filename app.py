@@ -116,7 +116,7 @@ if "loja" in query_params:
                             
                                 if len(urls_validas) > 1:
                                     mini_cols = st.columns(len(urls_validas) - 1)
-                                 for i, m_col in enumerate(mini_cols):
+                                    for i, m_col in enumerate(mini_cols):
                                         with m_col:
                                             render_img_clicavel(urls_validas[i+1])
                             else:
