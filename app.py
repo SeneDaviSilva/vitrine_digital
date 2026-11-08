@@ -87,6 +87,15 @@ if "loja" in query_params:
             st.header(f"📌 {cat}")
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
             
+            for cat in categorias:
+            st.header(f"📌 {cat}")
+            
+            # 1. Filtra apenas os produtos desta categoria
+            produtos_cat = [p for p in produtos if p["categoria"] == cat]
+            
+            # 2. NOVO: Ordena os produtos em ordem alfabética (A-Z) ignorando maiúsculas e minúsculas
+            produtos_cat = sorted(produtos_cat, key=lambda x: x["nome"].lower())
+            
             for p in produtos_cat:
                 with st.container():
                     col1, col2 = st.columns([1, 2])
@@ -95,7 +104,6 @@ if "loja" in query_params:
                         urls_img = [p.get("imagem_url"), p.get("imagem_url_2"), p.get("imagem_url_3")]
                         urls_validas = [u for u in urls_img if u]
                         
-                        # Função interna para gerar a imagem clicável
                         def render_img_clicavel(url):
                             st.markdown(f'''
                                 <a href="{url}" target="_blank">
@@ -104,10 +112,8 @@ if "loja" in query_params:
                             ''', unsafe_allow_html=True)
                         
                         if urls_validas:
-                            # Imagem principal (clicável)
                             render_img_clicavel(urls_validas[0])
                             
-                            # Miniaturas (clicáveis)
                             if len(urls_validas) > 1:
                                 mini_cols = st.columns(len(urls_validas) - 1)
                                 for i, m_col in enumerate(mini_cols):
@@ -117,6 +123,17 @@ if "loja" in query_params:
                             st.markdown('''
                                 <img src="https://via.placeholder.com/150?text=Sem+Foto" style="width:100%; border-radius: 10px; object-fit: cover; aspect-ratio: 1/1; border: 1px solid #eee;">
                             ''', unsafe_allow_html=True)
+                            
+                    with col2:
+                        st.subheader(p["nome"])
+                        st.write(p.get("descricao", ""))
+                        st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
+                        
+                        telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
+                        texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
+                        wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
+                        st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
+                st.divider()
                             
                     with col2:
                         st.subheader(p["nome"])
@@ -141,19 +158,22 @@ if "vendedor_id" not in st.session_state:
     aba_login, aba_cadastro = st.tabs(["Fazer Login", "Criar minha Loja"])
     
     with aba_login:
-        email_login = st.text_input("E-mail")
-        senha_login = st.text_input("Senha", type="password")
-        if st.button("Entrar", type="primary"):
-            res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
+        # O st.form cria uma "caixa" que envia os dados automaticamente ao apertar Enter
+        with st.form("form_login"):
+            email_login = st.text_input("E-mail")
+            senha_login = st.text_input("Senha", type="password")
             
-            if not res.data:
-                st.error("❌ E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
-            elif res.data[0]["senha"] != hash_senha(senha_login):
-                st.error("❌ Senha incorreta.")
-            else:
-                st.session_state["vendedor_id"] = res.data[0]["id"]
-                st.session_state["nome_loja"] = res.data[0]["nome_loja"]
-                st.rerun()
+            if st.form_submit_button("Entrar", type="primary"):
+                res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
+                
+                if not res.data:
+                    st.error("❌ E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
+                elif res.data[0]["senha"] != hash_senha(senha_login):
+                    st.error("❌ Senha incorreta.")
+                else:
+                    st.session_state["vendedor_id"] = res.data[0]["id"]
+                    st.session_state["nome_loja"] = res.data[0]["nome_loja"]
+                    st.rerun()
 
     with aba_cadastro:
         with st.form("form_nova_loja"):
