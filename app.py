@@ -138,18 +138,28 @@ if "loja" in query_params:
 # MODO 2: ÁREA ADMINISTRATIVA (Login e Painel da Vendedora)
 # ---------------------------------------------------------
 
-if "vendedor_id" not in st.session_state:
+# ---------------------------------------------------------
+# MODO 2: ÁREA ADMINISTRATIVA (Login e Painel da Vendedora)
+# ---------------------------------------------------------
+
+# ESTADO 1: Ninguém logado (Mostra tela de Login)
+if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
     st.title("🔐 Acesso Restrito - Vendedores")
     
     aba_login, aba_cadastro = st.tabs(["Fazer Login", "Criar minha Loja"])
     
     with aba_login:
-        # O st.form cria uma "caixa" que envia os dados automaticamente ao apertar Enter
         with st.form("form_login"):
             email_login = st.text_input("E-mail")
             senha_login = st.text_input("Senha", type="password")
             
             if st.form_submit_button("Entrar", type="primary"):
+                # --- CHECAGEM DA CONTA ADM SUPREMA (PRIMEIRO) ---
+                if email_login.lower() == "admin@vitrinedigital.com" and senha_login == "admin123":
+                    st.session_state["is_admin_master"] = True
+                    st.rerun()
+                
+                # --- CHECAGEM NORMAL (Vendedoras) ---
                 res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
                 
                 if not res.data:
@@ -165,12 +175,9 @@ if "vendedor_id" not in st.session_state:
         with st.form("form_nova_loja"):
             novo_nome = st.text_input("Nome da sua Loja/Negócio *")
             novo_email = st.text_input("Seu E-mail *")
-
             novo_whats = st.text_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
-                max_chars=13,
-                placeholder="5511999998888",
-                help="Digite APENAS números, sem espaços ou traços."
+                max_chars=13, placeholder="5511999998888", help="Digite APENAS números, sem espaços ou traços."
             )
             nova_senha = st.text_input("Crie uma Senha *", type="password")
 
@@ -192,40 +199,80 @@ if "vendedor_id" not in st.session_state:
                     else:
                         try:
                             novo_vendedor = {
-                                "nome_loja": novo_nome,
-                                "email": novo_email.lower(),
-                                "whatsapp": novo_whats,
-                                "senha": hash_senha(nova_senha)
+                                "nome_loja": novo_nome, "email": novo_email.lower(),
+                                "whatsapp": novo_whats, "senha": hash_senha(nova_senha)
                             }
                             supabase.table("vendedores").insert(novo_vendedor).execute()
                             st.success("Conta criada com sucesso! Vá para a aba 'Fazer Login' para entrar.")
                         except Exception as e:
                             st.error(f"Erro ao criar conta: {e}")
 
+# ESTADO 2: Admin Supremo logado, mas ainda NÃO escolheu a loja
+elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_state:
+    st.title("👑 Painel Supremo - Administração")
+    st.info("Você está logado com acesso total ao sistema.")
+    
+    if st.button("Sair (Logout do Sistema)"):
+        del st.session_state["is_admin_master"]
+        st.rerun()
+        
+    st.subheader("Selecione uma loja para gerenciar")
+    res_todas = supabase.table("vendedores").select("*").execute()
+    todas_lojas = res_todas.data
+    
+    if not todas_lojas:
+        st.warning("Nenhuma loja cadastrada no sistema ainda.")
+    else:
+        # Cria um dicionário para o Selectbox (Nome da Loja + Email facilita achar a
+        # certa)
+        lojas_dict = {f"{l['nome_loja']} ({l['email']})": l for l in todas_lojas}
+        loja_escolhida = st.selectbox("Lojas Cadastradas:", list(lojas_dict.keys()))
+        
+        if st.button("Acessar Painel Desta Loja", type="primary"):
+            loja_alvo = lojas_dict[loja_escolhida]
+            st.session_state["vendedor_id"] = loja_alvo["id"]
+            st.session_state["nome_loja"] = loja_alvo["nome_loja"]
+            st.rerun()
+            
+        st.divider()
+        st.markdown(f"### Total de contas ativas: {len(todas_lojas)}")
+        for l in todas_lojas:
+            st.markdown(f"🏪 **{l['nome_loja']}** | 📧 {l['email']} | 📱 {l['whatsapp']}")
+
+# ESTADO 3: Painel da Loja Aberto (Pela vendedora normal OU pelo Admin Supremo
+# personificado)
 else:
-    # --- PAINEL LOGADO ---
     vid = st.session_state["vendedor_id"]
 
-    # Verifica e dispara notificações guardadas na memória
     if "msg_sucesso" in st.session_state:
         st.toast(st.session_state["msg_sucesso"], icon="✅")
         del st.session_state["msg_sucesso"]
 
-    st.title(f"Painel: {st.session_state['nome_loja']}")
+    # Cria colunas para colocar o título e o botão de sair na mesma linha
+    c_titulo, c_sair = st.columns([3, 2])
+    with c_titulo:
+        st.title(f"Painel: {st.session_state['nome_loja']}")
+    
+    with c_sair:
+        # Se for o Admin Supremo, o botão apenas "sai" da loja e volta pro Menu Supremo
+        if "is_admin_master" in st.session_state:
+            if st.button("👑 Voltar ao Menu Admin", use_container_width=True):
+                del st.session_state["vendedor_id"]
+                del st.session_state["nome_loja"]
+                st.rerun()
+        # Se for a vendedora normal, o botão faz o logout completo da plataforma
+        else:
+            if st.button("Sair (Logout)", use_container_width=True):
+                del st.session_state["vendedor_id"]
+                del st.session_state["nome_loja"]
+                st.rerun()
 
-    # Mostra o link da vitrine
     URL_BASE = "https://vitrine-digital.streamlit.app"
     id_string = f"vitrine_{vid}"
     id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
 
-    if st.button("Sair (Logout)"):
-        del st.session_state["vendedor_id"]
-        del st.session_state["nome_loja"]
-        st.rerun()
-
-    # --- Janela Flutuante (Modal) de Edição de Produto ---
     @st.dialog("✏️ Editar Produto")
     def modal_editar_produto(item):
         with st.form(f"form_edit_{item['id']}", clear_on_submit=False):
@@ -236,10 +283,8 @@ else:
             
             st.caption("Para manter as fotos atuais, não envie nada. Para trocar, envie até 3 novas fotos.")
             edit_imagens = st.file_uploader(
-                "Substituir Fotos (Máximo 3)", 
-                type=["png", "jpg", "jpeg", "webp"], 
-                accept_multiple_files=True, 
-                key=f"up_{item['id']}"
+                "Substituir Fotos (Máximo 3)", type=["png", "jpg", "jpeg", "webp"], 
+                accept_multiple_files=True, key=f"up_{item['id']}"
             )
             
             if st.form_submit_button("Salvar Alterações"):
@@ -249,10 +294,8 @@ else:
                     st.error("❌ Envie no máximo 3 fotos!")
                 else:
                     update_data = {
-                        "nome": edit_nome,
-                        "descricao": edit_desc,
-                        "preco": edit_preco,
-                        "categoria": edit_cat
+                        "nome": edit_nome, "descricao": edit_desc,
+                        "preco": edit_preco, "categoria": edit_cat
                     }
                     
                     if edit_imagens:
@@ -263,8 +306,7 @@ else:
                                 ext = img_file.name.split(".")[-1]
                                 nome_arquivo = f"{vid}_edit_{int(time.time())}_{idx}.{ext}"
                                 supabase.storage.from_("produtos").upload(
-                                    path=nome_arquivo, 
-                                    file=img_file.getvalue(), 
+                                    path=nome_arquivo, file=img_file.getvalue(), 
                                     file_options={"content-type": img_file.type}
                                 )
                                 urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
@@ -307,11 +349,8 @@ else:
                             try:
                                 ext = img_file.name.split(".")[-1]
                                 nome_arquivo = f"{vid}_{int(time.time())}_{idx}.{ext}"
-                                bytes_data = img_file.getvalue()
-
                                 supabase.storage.from_("produtos").upload(
-                                    path=nome_arquivo,
-                                    file=bytes_data,
+                                    path=nome_arquivo, file=img_file.getvalue(),
                                     file_options={"content-type": img_file.type}
                                 )
                                 urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
@@ -322,37 +361,26 @@ else:
 
                     if upload_succeeded:
                         supabase.table("produtos").insert({
-                            "vendedor_id": vid,
-                            "nome": nome,
-                            "descricao": descricao,
-                            "preco": preco,
-                            "categoria": categoria,
-                            "imagem_url": urls_geradas[0],
-                            "imagem_url_2": urls_geradas[1],
-                            "imagem_url_3": urls_geradas[2],
-                            "disponivel": True
+                            "vendedor_id": vid, "nome": nome, "descricao": descricao,
+                            "preco": preco, "categoria": categoria,
+                            "imagem_url": urls_geradas[0], "imagem_url_2": urls_geradas[1],
+                            "imagem_url_3": urls_geradas[2], "disponivel": True
                         }).execute()
 
                         st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
     with tab_gerenciamento:
-        # Removemos o .order("id") antigo para fazermos a ordenação inteligente no
-        # Python
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).execute()
         meus_produtos = res_meus_prod.data
 
         if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
         else:
-            # 1. Pega as categorias únicas e ordena de A a Z
             categorias_admin = sorted(list(set(p["categoria"] for p in meus_produtos)))
             
             for cat in categorias_admin:
-                # Cria um mini-cabeçalho para cada categoria no painel
                 st.markdown(f"#### 📁 {cat}") 
-                
-                # 2. Filtra os produtos dessa categoria e também ordena por nome (A-Z)
                 produtos_cat_admin = [p for p in meus_produtos if p["categoria"] == cat]
                 produtos_cat_admin = sorted(produtos_cat_admin, key=lambda x: x["nome"].lower())
                 
@@ -392,8 +420,7 @@ else:
 
             if st.form_submit_button("Salvar Configurações"):
                 update_loja = {
-                    "nome_loja": edit_nome_loja,
-                    "descricao_loja": edit_desc_loja
+                    "nome_loja": edit_nome_loja, "descricao_loja": edit_desc_loja
                 }
                 upload_succeeded = True
 
@@ -402,8 +429,7 @@ else:
                         ext = edit_logo.name.split(".")[-1]
                         nome_arquivo = f"logo_{vid}_{int(time.time())}.{ext}"
                         supabase.storage.from_("produtos").upload(
-                            path=nome_arquivo,
-                            file=edit_logo.getvalue(),
+                            path=nome_arquivo, file=edit_logo.getvalue(),
                             file_options={"content-type": edit_logo.type}
                         )
                         update_loja["logo_url"] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
