@@ -159,8 +159,8 @@ if "vendedor_id" not in st.session_state:
 
             novo_whats = st.text_input(
                 "WhatsApp para Pedidos (Apenas números com DDD) *",
-                max_chars=11,
-                placeholder="11999998888",
+                max_chars=13,
+                placeholder="5511999998888",
                 help="Digite APENAS números, sem espaços ou traços."
             )
             nova_senha = st.text_input("Crie uma Senha *", type="password")
