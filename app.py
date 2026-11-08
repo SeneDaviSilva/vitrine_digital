@@ -99,14 +99,15 @@ if "loja" in query_params:
                         urls_validas = [u for u in urls_img if u]
                         
                         if urls_validas:
-                            # Se tiver mais de uma, cria Abas (estilo carrossel mobile)
+                            # UX Melhorada: Imagem principal sempre em destaque
+                            st.image(urls_validas[0], use_container_width=True)
+                            
+                            # Se tiver fotos extras, cria uma linha de miniaturas embaixo
                             if len(urls_validas) > 1:
-                                abas_img = st.tabs([f"Foto {i+1}" for i in range(len(urls_validas))])
-                                for i, aba in enumerate(abas_img):
-                                    with aba:
-                                        st.image(urls_validas[i], use_container_width=True)
-                            else:
-                                st.image(urls_validas[0], use_container_width=True)
+                                mini_cols = st.columns(len(urls_validas) - 1)
+                                for i, m_col in enumerate(mini_cols):
+                                    with m_col:
+                                        st.image(urls_validas[i+1], use_container_width=True)
                         else:
                             st.image("https://via.placeholder.com/150?text=Sem+Foto", use_container_width=True)
                             
@@ -197,21 +198,62 @@ else:
     # --- PAINEL LOGADO ---
     vid = st.session_state["vendedor_id"]
 
-    st.title(f"Painel: {st.session_state['nome_loja']}")
-
-    URL_BASE = "https://vitrine-digital.streamlit.app" # URL real
-    
-    # Criptografa a URL com Base64
-    id_string = f"vitrine_{vid}"
-    id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
-    
-    link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
-    st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
-
-    if st.button("Sair (Logout)"):
-        del st.session_state["vendedor_id"]
-        del st.session_state["nome_loja"]
-        st.rerun()
+    # --- Janela Flutuante (Modal) de Edição de Produto ---
+    @st.dialog("✏️ Editar Produto")
+    def modal_editar_produto(item):
+        with st.form(f"form_edit_{item['id']}", clear_on_submit=False):
+            edit_nome = st.text_input("Nome", value=item['nome'])
+            edit_desc = st.text_area("Descrição", value=item.get('descricao', ''))
+            edit_preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=float(item['preco']))
+            edit_cat = st.text_input("Categoria", value=item['categoria'])
+            
+            st.caption("Para manter as fotos atuais, não envie nada. Para trocar, envie até 3 novas fotos.")
+            edit_imagens = st.file_uploader(
+                "Substituir Fotos (Máximo 3)", 
+                type=["png", "jpg", "jpeg", "webp"], 
+                accept_multiple_files=True, 
+                key=f"up_{item['id']}"
+            )
+            
+            if st.form_submit_button("Salvar Alterações"):
+                if not edit_nome or not edit_cat or edit_preco <= 0:
+                    st.error("Preencha Nome, Preço e Categoria.")
+                elif len(edit_imagens) > 3:
+                    st.error("❌ Envie no máximo 3 fotos!")
+                else:
+                    update_data = {
+                        "nome": edit_nome,
+                        "descricao": edit_desc,
+                        "preco": edit_preco,
+                        "categoria": edit_cat
+                    }
+                    
+                    if edit_imagens:
+                        urls_geradas = [None, None, None]
+                        upload_succeeded = True
+                        for idx, img_file in enumerate(edit_imagens):
+                            try:
+                                ext = img_file.name.split(".")[-1]
+                                nome_arquivo = f"{vid}_edit_{int(time.time())}_{idx}.{ext}"
+                                supabase.storage.from_("produtos").upload(
+                                    path=nome_arquivo, 
+                                    file=img_file.getvalue(), 
+                                    file_options={"content-type": img_file.type}
+                                )
+                                urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
+                            except Exception as err:
+                                st.error(f"Erro ao atualizar foto: {err}")
+                                upload_succeeded = False
+                                break
+                                
+                        if upload_succeeded:
+                            update_data["imagem_url"] = urls_geradas[0]
+                            update_data["imagem_url_2"] = urls_geradas[1]
+                            update_data["imagem_url_3"] = urls_geradas[2]
+                    
+                    supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
+                    st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
+                    st.rerun()
 
     tab_cadastro, tab_gerenciamento, tab_config = st.tabs(["Cadastrar Novo Item", "Meus Produtos", "⚙️ Configurações da Loja"])
 
@@ -291,19 +333,25 @@ else:
     if not meus_produtos:
             st.info("Você ainda não tem produtos cadastrados.")
     else:
-            for item in meus_produtos:
-                c1, c2, c3 = st.columns([3, 2, 1])
-                with c1:
-                    st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
-                with c2:
-                    novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
-                    if novo_status != item["disponivel"]:
-                        supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
-                        st.rerun()
-                with c3:
-                    if st.button("🗑️", key=f"del_{item['id']}"):
-                        supabase.table("produtos").delete().eq("id", item["id"]).execute()
-                        st.rerun()
+                    for item in meus_produtos:
+                        # Mudamos para 4 colunas para caber o botão de edição ao lado do de apagar
+                        c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
+                        with c1:
+                            st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
+                        with c2:
+                            novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
+                            if novo_status != item["disponivel"]:
+                                supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
+                                st.rerun()
+                        with c3:
+                            # Botão que "chama" a janela flutuante
+                            if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
+                                modal_editar_produto(item)
+                        with c4:
+                            if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
+                                supabase.table("produtos").delete().eq("id", item["id"]).execute()
+                                st.rerun()
+                        st.divider()
 
                 # --- Painel Retrátil de Edição ---
                 with st.expander("✏️ Editar Produto"):
