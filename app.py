@@ -17,20 +17,22 @@ supabase = init_supabase()
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
-# --- ESTILIZAÇÃO MINIMALISTA (Inspirada em Apple, Huel e Ocelot) ---
+# --- ESTILIZAÇÃO MINIMALISTA CORRIGIDA ---
 st.markdown("""
     <style>
-    /* Configuração global e centralização */
+    /* Configuração global e centralização com fundo totalmente limpo */
     .stApp { 
         max-width: 600px; 
         margin: 0 auto; 
-        background-color: #fafafa;
+        background-color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     
-    /* Cartões de produtos com visual limpo e sombra difusa bem suave */
-    .element-container {
-        margin-bottom: 0.5rem;
+    /* Garante visibilidade perfeita para títulos em qualquer tema */
+    h1, h2, h3 {
+        letter-spacing: -0.5px;
+        color: #111111 !important;
+        font-weight: 600;
     }
     
     /* Tags de preço minimalistas */
@@ -49,14 +51,7 @@ st.markdown("""
         border: 1px solid #eaeaea !important;
     }
     
-    /* Ajuste de títulos e textos para o padrão typographic scale */
-    h1, h2, h3 {
-        letter-spacing: -0.5px;
-        color: #111111;
-        font-weight: 600;
-    }
-    
-    /* Botões primários com pegada moderna (cantos retos/suaves, pretos ou com alta presença) */
+    /* Botões primários modernos */
     .stButton button[kind="primary"], div.stButton > button:first-child {
         border-radius: 6px !important;
         font-weight: 500 !important;
