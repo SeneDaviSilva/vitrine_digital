@@ -138,10 +138,6 @@ if "loja" in query_params:
 # MODO 2: ÁREA ADMINISTRATIVA (Login e Painel da Vendedora)
 # ---------------------------------------------------------
 
-# ---------------------------------------------------------
-# MODO 2: ÁREA ADMINISTRATIVA (Login e Painel da Vendedora)
-# ---------------------------------------------------------
-
 # ESTADO 1: Ninguém logado (Mostra tela de Login)
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
     st.title("🔐 Acesso Restrito - Vendedores")
@@ -323,10 +319,10 @@ else:
                     supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
                     st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
                     st.rerun()
-
-    tab_cadastro, tab_gerenciamento, tab_config = st.tabs(["Cadastrar Novo Item", "Meus Produtos", "⚙️ Configurações da Loja"])
-
-    with tab_cadastro:
+                    
+                    # --- Janela Flutuante para CADASTRAR Produto ---
+    @st.dialog("➕ Cadastrar Novo Produto")
+    def modal_novo_produto():
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
@@ -370,7 +366,16 @@ else:
                         st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
+    # Trocamos de 3 para 2 abas
+    tab_gerenciamento, tab_config = st.tabs(["📦 Meus Produtos", "⚙️ Configurações da Loja"])
+
     with tab_gerenciamento:
+        # NOVO: Botão grande de destaque para abrir a janela de cadastro
+        if st.button("➕ Cadastrar Novo Produto", type="primary", use_container_width=True):
+            modal_novo_produto()
+            
+        st.divider()
+
         res_meus_prod = supabase.table("produtos").select("*").eq("vendedor_id", vid).execute()
         meus_produtos = res_meus_prod.data
 
