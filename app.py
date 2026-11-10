@@ -122,7 +122,6 @@ if "loja" in query_params:
     if not produtos:
         st.info("Nenhum produto disponível no momento.")
     else:
-        # --- LÓGICA DE CATEGORIAS E FILTROS ---
         cat_counts = {}
         for p in produtos:
             cat_counts[p['categoria']] = cat_counts.get(p['categoria'], 0) + 1
@@ -130,7 +129,6 @@ if "loja" in query_params:
         todas_cats = list(cat_counts.keys())
         ordem_salva = loja.get("categorias_ordem", "")
         
-        # Puxa a ordem salva pelo lojista, adicionando as novas no final
         if ordem_salva:
             ordem_lista = [c.strip() for c in ordem_salva.split(",") if c.strip() in todas_cats]
             for c in todas_cats:
@@ -142,9 +140,6 @@ if "loja" in query_params:
             
         st.write("🔍 **Buscar por Setor**")
         
-        # O Try/Except garante que se a versão do Streamlit suportar Pills (Chips), ele
-        # usa.
-        # Senão, usa o Multiselect nativo, mantendo a responsividade.
         try:
             selecionadas = st.pills(
                 "Filtro", options=categorias_ordenadas, selection_mode="multi", 
@@ -157,8 +152,12 @@ if "loja" in query_params:
                 placeholder="Todos os Setores (Clique para filtrar)", label_visibility="collapsed"
             )
             
-        # Aplica o filtro na visão real
-        cats_para_exibir = selecionadas if selecionadas else categorias_ordenadas
+        # --- ALTERAÇÃO 30: Só exibe se houver filtro selecionado ---
+        if not selecionadas:
+            st.info("👆 Selecione um ou mais setores acima para visualizar o cardápio.")
+            cats_para_exibir = []
+        else:
+            cats_para_exibir = selecionadas
         
         for cat in cats_para_exibir:
             st.header(f"📌 {cat}")
@@ -260,7 +259,6 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                 elif len(novo_whats) < 10:
                     st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
                 else:
-                    # --- NOVO: Checa se o Nome, E-mail ou Whats já existem no banco ---
                     res_nome = supabase.table("vendedores").select("id").eq("nome_loja", novo_nome).execute()
                     res_email = supabase.table("vendedores").select("id").eq("email", novo_email.lower()).execute()
                     res_whats = supabase.table("vendedores").select("id").eq("whatsapp", novo_whats).execute()
@@ -391,7 +389,7 @@ else:
                     st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
                     st.rerun()
 
-    @st.dialog("➕ Cadastrar Novo Produto")
+    @st.dialog("➕ Cadastrar 1 Novo Produto")
     def modal_novo_produto():
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
@@ -436,11 +434,78 @@ else:
                         st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
+    # --- ALTERAÇÃO 31: Novo Modal no Estilo Pokémon Showdown ---
+    @st.dialog("⚡ Cadastro Rápido em Massa")
+    def modal_cadastro_massa():
+        st.markdown("Copie e cole seus produtos. **Deixe sempre uma linha em branco entre cada produto.**")
+        st.code("Bolo de Cenoura\nPreço: 15.50\nCategoria: Bolos\nDescrição: Cobertura de chocolate\n\nCoxinha de Frango\nPreço: 7.00\nCategoria: Salgados", language="text")
+        
+        texto_importacao = st.text_area("Cole seu cardápio aqui:", height=300)
+        
+        if st.button("Processar e Salvar Tudo", type="primary"):
+            if not texto_importacao.strip():
+                st.error("O campo está vazio.")
+                return
+                
+            produtos_para_inserir = []
+            # Separa os produtos ignorando espaços vazios extras
+            blocos = re.split(r'\n\s*\n', texto_importacao.strip())
+            
+            erros = 0
+            for bloco in blocos:
+                linhas = bloco.strip().split('\n')
+                if not linhas or not linhas[0]: continue
+                
+                nome = linhas[0].strip()
+                preco = 0.0
+                categoria = "Sem Categoria"
+                descricao = ""
+                
+                for linha in linhas[1:]:
+                    l_lower = linha.lower()
+                    if l_lower.startswith('preço:') or l_lower.startswith('preco:'):
+                        try:
+                            p_str = linha.split(':', 1)[1].strip().replace('R$', '').replace(',', '.')
+                            preco = float(p_str)
+                        except:
+                            pass
+                    elif l_lower.startswith('categoria:'):
+                        categoria = linha.split(':', 1)[1].strip()
+                    elif l_lower.startswith('descrição:') or l_lower.startswith('descricao:'):
+                        descricao = linha.split(':', 1)[1].strip()
+                        
+                if nome and preco > 0:
+                    produtos_para_inserir.append({
+                        "vendedor_id": vid,
+                        "nome": nome[:255],
+                        "preco": preco,
+                        "categoria": categoria,
+                        "descricao": descricao,
+                        "disponivel": True
+                    })
+                else:
+                    erros += 1
+            
+            if produtos_para_inserir:
+                supabase.table("produtos").insert(produtos_para_inserir).execute()
+                st.session_state["msg_sucesso"] = f"{len(produtos_para_inserir)} produtos cadastrados com sucesso!"
+                if erros > 0:
+                    st.session_state["msg_sucesso"] += f" ({erros} ignorados por erro de formatação)."
+                st.rerun()
+            else:
+                st.error("❌ Nenhum produto válido encontrado. Verifique se digitou o 'Preço:' corretamente.")
+
     tab_gerenciamento, tab_config = st.tabs(["📦 Meus Produtos", "⚙️ Configurações da Loja"])
 
     with tab_gerenciamento:
-        if st.button("➕ Cadastrar Novo Produto", type="primary", use_container_width=True):
-            modal_novo_produto()
+        # Divide os botões em duas colunas para a vendedora escolher
+        c_add1, c_add2 = st.columns(2)
+        with c_add1:
+            if st.button("➕ Cadastrar Novo", type="primary", use_container_width=True):
+                modal_novo_produto()
+        with c_add2:
+            if st.button("⚡ Cadastro em Massa (Texto)", type="secondary", use_container_width=True):
+                modal_cadastro_massa()
             
         st.divider()
 
@@ -481,8 +546,6 @@ else:
 
         with st.form("form_config_loja"):
             st.subheader("Personalizar Perfil da Vitrine")
-            
-            # --- NOVO: Inputs atualizados com Email e WhatsApp ---
             edit_nome_loja = st.text_input("Nome da Loja", value=dados_loja['nome_loja'])
             edit_email = st.text_input("E-mail de Login", value=dados_loja['email'])
             edit_whats = st.text_input("WhatsApp para Pedidos", value=dados_loja['whatsapp'], max_chars=13)
@@ -500,7 +563,6 @@ else:
             res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
             minhas_cats_unicas = list(set(p['categoria'] for p in res_cats.data))
             
-            # --- Correção de categorias_ordem ---
             ordem_atual_str = dados_loja.get("categorias_ordem") or ""
             if ordem_atual_str:
                 ordem_atual_lista = [c.strip() for c in ordem_atual_str.split(",") if c.strip() in minhas_cats_unicas]
@@ -522,8 +584,6 @@ else:
             edit_logo = st.file_uploader("Logo / Foto de Perfil da Loja", type=["png", "jpg", "jpeg", "webp"])
 
             if st.form_submit_button("Salvar Configurações"):
-                
-                # --- NOVO: Validações de segurança ---
                 if not edit_nome_loja or not edit_email or not edit_whats:
                     st.error("Nome, E-mail e WhatsApp são obrigatórios!")
                 elif not edit_whats.isdigit():
@@ -531,8 +591,6 @@ else:
                 elif len(edit_whats) < 10:
                     st.error("❌ Telefone incompleto! Faltou o DDD ou números.")
                 else:
-                    # Verifica se o novo nome, email ou whats já existem EM OUTRAS LOJAS
-                    # (.neq("id", vid))
                     res_nome_check = supabase.table("vendedores").select("id").eq("nome_loja", edit_nome_loja).neq("id", vid).execute()
                     res_email_check = supabase.table("vendedores").select("id").eq("email", edit_email.lower()).neq("id", vid).execute()
                     res_whats_check = supabase.table("vendedores").select("id").eq("whatsapp", edit_whats).neq("id", vid).execute()
