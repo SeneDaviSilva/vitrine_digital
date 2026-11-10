@@ -215,7 +215,7 @@ if "loja" in query_params:
 # ---------------------------------------------------------
 
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
-    st.title("Acesso Restrito - Vendedores")
+    st.title("Vitrine Digital - Vendedores")
     
     aba_login, aba_cadastro = st.tabs(["Fazer Login", "Criar minha Loja"])
     
