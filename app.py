@@ -493,9 +493,14 @@ else:
             res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
             minhas_cats_unicas = list(set(p['categoria'] for p in res_cats.data))
             
-            # Monta a lista atual da ordem
-            ordem_atual_str = dados_loja.get("categorias_ordem", "")
-            ordem_atual_lista = [c.strip() for c in ordem_atual_str.split(",") if c.strip() in minhas_cats_unicas]
+            # Monta a lista atual da ordem (corrigindo o erro de valor nulo)
+            ordem_atual_str = dados_loja.get("categorias_ordem") or ""
+            
+            if ordem_atual_str:
+                ordem_atual_lista = [c.strip() for c in ordem_atual_str.split(",") if c.strip() in minhas_cats_unicas]
+            else:
+                ordem_atual_lista = []
+                
             for c in minhas_cats_unicas:
                 if c not in ordem_atual_lista:
                     ordem_atual_lista.append(c)
