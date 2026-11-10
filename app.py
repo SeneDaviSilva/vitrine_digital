@@ -42,7 +42,10 @@ query_params = st.query_params
 if "loja" in query_params:
     loja_hash = query_params["loja"]
     
-    # Reverte o Base64 para descobrir o ID real
+    # --- NOVO: Inicializa o Carrinho de Compras na memória ---
+    if "carrinho" not in st.session_state:
+        st.session_state["carrinho"] = {}
+    
     try:
         decodificado = base64.urlsafe_b64decode(loja_hash.encode()).decode()
         loja_id = decodificado.replace("vitrine_", "") 
@@ -50,7 +53,6 @@ if "loja" in query_params:
         st.error("❌ Link da loja inválido ou corrompido!")
         st.stop()
     
-    # Buscar dados da loja
     res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
     
     if not res_loja.data:
@@ -59,11 +61,59 @@ if "loja" in query_params:
 
     loja = res_loja.data[0]
 
+    # --- NOVO: Janela Flutuante do Carrinho de Compras ---
+    @st.dialog("🛒 Seu Pedido")
+    def modal_carrinho():
+        if not st.session_state["carrinho"]:
+            st.warning("Seu carrinho está vazio! Adicione produtos da vitrine.")
+            return
+        
+        total = 0
+        for pid, item in list(st.session_state["carrinho"].items()):
+            st.markdown(f"**{item['nome']}**")
+            
+            # Botões de + e - alinhados com o preço
+            c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
+            with c1:
+                if st.button("➖", key=f"dec_{pid}"):
+                    st.session_state["carrinho"][pid]["qtd"] -= 1
+                    if st.session_state["carrinho"][pid]["qtd"] <= 0:
+                        del st.session_state["carrinho"][pid]
+                    st.rerun()
+            with c2:
+                st.markdown(f"<div style='text-align:center; padding-top:8px;'>**{item['qtd']}**</div>", unsafe_allow_html=True)
+            with c3:
+                if st.button("➕", key=f"inc_{pid}"):
+                    st.session_state["carrinho"][pid]["qtd"] += 1
+                    st.rerun()
+            with c4:
+                st.markdown(f"<div style='text-align:right; padding-top:8px; color:#2e7d32; font-weight:bold;'>R$ {(item['preco'] * item['qtd']):.2f}</div>", unsafe_allow_html=True)
+            
+            total += item['preco'] * item['qtd']
+            st.divider()
+            
+        st.subheader(f"Total: R$ {total:.2f}")
+        
+        # Gera o recibo para o WhatsApp
+        texto_msg = "Olá! Gostaria de fazer o seguinte pedido:\n\n"
+        for item in st.session_state["carrinho"].values():
+            texto_msg += f"- {item['qtd']}x {item['nome']}\n"
+        texto_msg += f"\n*Total: R$ {total:.2f}*"
+        
+        telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
+        wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
+        
+        # Botão principal de envio
+        st.link_button("📲 Enviar Pedido por WhatsApp", wa_url, type="primary", use_container_width=True)
+        
+        if st.button("🗑️ Esvaziar Carrinho", use_container_width=True):
+            st.session_state["carrinho"] = {}
+            st.rerun()
+
     # --- Cabeçalho com Logo e Descrição ---
     col_logo, col_info = st.columns([1, 3])
     with col_logo:
         logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
-        # Renderiza a logo redonda usando HTML
         st.markdown(f'''
             <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 3px solid #f0f2f6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         ''', unsafe_allow_html=True)
@@ -71,7 +121,12 @@ if "loja" in query_params:
         st.title(f"🏪 {loja['nome_loja']}")
         if loja.get("descricao_loja"):
             st.write(loja["descricao_loja"])
-        st.caption("Faça sua encomenda direto pelo WhatsApp!")
+        
+        # --- NOVO: Botão superior do Carrinho informando a quantidade ---
+        qtd_itens = sum(item["qtd"] for item in st.session_state["carrinho"].values())
+        if st.button(f"🛒 Ver Carrinho ({qtd_itens} itens)", type="primary", use_container_width=True):
+            modal_carrinho()
+            
     st.divider()
     
     # Buscar produtos desta loja
@@ -86,11 +141,7 @@ if "loja" in query_params:
         for cat in categorias:
             st.header(f"📌 {cat}")
             
-            # 1. Filtra apenas os produtos desta categoria
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
-            
-            # 2. Ordena os produtos em ordem alfabética (A-Z) ignorando maiúsculas e
-            # minúsculas
             produtos_cat = sorted(produtos_cat, key=lambda x: x["nome"].lower())
             
             for p in produtos_cat:
@@ -126,10 +177,20 @@ if "loja" in query_params:
                         st.write(p.get("descricao", ""))
                         st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
                         
-                        telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
-                        texto_msg = f"Olá! Vi o produto *{p['nome']}* (R$ {p['preco']:.2f}) na sua vitrine e gostaria de fazer uma encomenda!"
-                        wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
-                        st.link_button("💬 Quero encomendar", wa_url, use_container_width=True)
+                        # --- NOVO: Botão de Adicionar ao Carrinho (Substitui o link
+                        # direto do Whats) ---
+                        if st.button("➕ Adicionar", key=f"add_{p['id']}", use_container_width=True):
+                            pid_str = str(p['id'])
+                            if pid_str in st.session_state["carrinho"]:
+                                st.session_state["carrinho"][pid_str]["qtd"] += 1
+                            else:
+                                st.session_state["carrinho"][pid_str] = {
+                                    "nome": p['nome'], 
+                                    "preco": float(p['preco']), 
+                                    "qtd": 1
+                                }
+                            st.toast(f"{p['nome']} adicionado ao carrinho!", icon="🛒")
+                            st.rerun()
                 st.divider()
     
     st.stop()
