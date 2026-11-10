@@ -275,7 +275,7 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                                 "whatsapp": novo_whats, "senha": hash_senha(nova_senha)
                             }
                             supabase.table("vendedores").insert(novo_vendedor).execute()
-                            st.success("Conta criada com sucesso! Vá para a aba 'Fazer Login' para entrar.")
+                            st.success("Conta criada com sucesso ☑! Vá para a aba 'Fazer Login' para entrar.")
                         except Exception as e:
                             st.error(f"Erro ao criar conta: {e}")
 
@@ -398,7 +398,7 @@ else:
                             update_data["imagem_url_3"] = urls_geradas[2]
                     
                     supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
-                    st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
+                    st.session_state["msg_sucesso"] = "Alterações salvas com sucesso! ☑"
                     st.rerun()
 
     @st.dialog("Cadastrar Novo Produto")
@@ -452,7 +452,7 @@ else:
                             "imagem_url_3": urls_geradas[2], "disponivel": True
                         }).execute()
 
-                        st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
+                        st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso! ☑"
                         st.rerun()
 
     @st.dialog("Cadastro Rápido em Massa")
@@ -507,7 +507,7 @@ else:
             
             if produtos_para_inserir:
                 supabase.table("produtos").insert(produtos_para_inserir).execute()
-                st.session_state["msg_sucesso"] = f"{len(produtos_para_inserir)} produtos cadastrados com sucesso!"
+                st.session_state["msg_sucesso"] = f"{len(produtos_para_inserir)} produtos cadastrados com sucesso! ☑"
                 if erros > 0:
                     st.session_state["msg_sucesso"] += f" ({erros} ignorados por erro de formatação)."
                 st.rerun()
@@ -646,7 +646,7 @@ else:
                             try:
                                 supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
                                 st.session_state["nome_loja"] = edit_nome_loja
-                                st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
+                                st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso! ☑"
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao salvar banco de dados: {e}")
