@@ -9,24 +9,19 @@ from supabase import create_client, Client
 # Configuração da página móvel
 st.set_page_config(page_title="Vitrine Digital", page_icon="🍲", layout="centered")
 
-# Inicialização da Conexão com Supabase
 def init_supabase() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_supabase()
 
-# Função utilitária para hash de senha
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
-# Estilização CSS
 st.markdown("""
     <style>
     .stApp { max-width: 600px; margin: 0 auto; }
     .card-produto { border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; background-color: #ffffff;}
     .preco-tag { color: #2e7d32; font-size: 1.25rem; font-weight: bold; }
-
-    /* Força todas as imagens (Logo e Produtos) a serem quadradas e uniformes */
     div[data-testid="stImage"] img {
         object-fit: cover !important;
         aspect-ratio: 1 / 1 !important;
@@ -42,7 +37,6 @@ query_params = st.query_params
 if "loja" in query_params:
     loja_hash = query_params["loja"]
     
-    # --- NOVO: Inicializa o Carrinho de Compras na memória ---
     if "carrinho" not in st.session_state:
         st.session_state["carrinho"] = {}
     
@@ -61,7 +55,6 @@ if "loja" in query_params:
 
     loja = res_loja.data[0]
 
-    # --- NOVO: Janela Flutuante do Carrinho de Compras ---
     @st.dialog("🛒 Seu Pedido")
     def modal_carrinho():
         if not st.session_state["carrinho"]:
@@ -71,8 +64,6 @@ if "loja" in query_params:
         total = 0
         for pid, item in list(st.session_state["carrinho"].items()):
             st.markdown(f"**{item['nome']}**")
-            
-            # Botões de + e - alinhados com o preço
             c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
             with c1:
                 if st.button("➖", key=f"dec_{pid}"):
@@ -94,7 +85,6 @@ if "loja" in query_params:
             
         st.subheader(f"Total: R$ {total:.2f}")
         
-        # Gera o recibo para o WhatsApp
         texto_msg = "Olá! Gostaria de fazer o seguinte pedido:\n\n"
         for item in st.session_state["carrinho"].values():
             texto_msg += f"- {item['qtd']}x {item['nome']}\n"
@@ -103,14 +93,12 @@ if "loja" in query_params:
         telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
         wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
         
-        # Botão principal de envio
         st.link_button("📲 Enviar Pedido por WhatsApp", wa_url, type="primary", use_container_width=True)
         
         if st.button("🗑️ Esvaziar Carrinho", use_container_width=True):
             st.session_state["carrinho"] = {}
             st.rerun()
 
-    # --- Cabeçalho com Logo e Descrição ---
     col_logo, col_info = st.columns([1, 3])
     with col_logo:
         logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
@@ -122,23 +110,57 @@ if "loja" in query_params:
         if loja.get("descricao_loja"):
             st.write(loja["descricao_loja"])
         
-        # --- NOVO: Botão superior do Carrinho informando a quantidade ---
         qtd_itens = sum(item["qtd"] for item in st.session_state["carrinho"].values())
         if st.button(f"🛒 Ver Carrinho ({qtd_itens} itens)", type="primary", use_container_width=True):
             modal_carrinho()
             
     st.divider()
     
-    # Buscar produtos desta loja
     res_prod = supabase.table("produtos").select("*").eq("vendedor_id", loja_id).eq("disponivel", True).execute()
     produtos = res_prod.data
 
     if not produtos:
         st.info("Nenhum produto disponível no momento.")
     else:
-        categorias = sorted(list(set(p["categoria"] for p in produtos)))
+        # --- LÓGICA DE CATEGORIAS E FILTROS ---
+        cat_counts = {}
+        for p in produtos:
+            cat_counts[p['categoria']] = cat_counts.get(p['categoria'], 0) + 1
+            
+        todas_cats = list(cat_counts.keys())
+        ordem_salva = loja.get("categorias_ordem", "")
         
-        for cat in categorias:
+        # Puxa a ordem salva pelo lojista, adicionando as novas no final
+        if ordem_salva:
+            ordem_lista = [c.strip() for c in ordem_salva.split(",") if c.strip() in todas_cats]
+            for c in todas_cats:
+                if c not in ordem_lista:
+                    ordem_lista.append(c)
+            categorias_ordenadas = ordem_lista
+        else:
+            categorias_ordenadas = sorted(todas_cats)
+            
+        st.write("🔍 **Buscar por Setor**")
+        
+        # O Try/Except garante que se a versão do Streamlit suportar Pills (Chips), ele
+        # usa.
+        # Senão, usa o Multiselect nativo, mantendo a responsividade.
+        try:
+            selecionadas = st.pills(
+                "Filtro", options=categorias_ordenadas, selection_mode="multi", 
+                format_func=lambda x: f"{x} ({cat_counts[x]})", label_visibility="collapsed"
+            )
+        except AttributeError:
+            selecionadas = st.multiselect(
+                "Filtro", options=categorias_ordenadas, 
+                format_func=lambda x: f"{x} ({cat_counts[x]})",
+                placeholder="Todos os Setores (Clique para filtrar)", label_visibility="collapsed"
+            )
+            
+        # Aplica o filtro na visão real
+        cats_para_exibir = selecionadas if selecionadas else categorias_ordenadas
+        
+        for cat in cats_para_exibir:
             st.header(f"📌 {cat}")
             
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
@@ -161,7 +183,6 @@ if "loja" in query_params:
                         
                         if urls_validas:
                             render_img_clicavel(urls_validas[0])
-                            
                             if len(urls_validas) > 1:
                                 mini_cols = st.columns(len(urls_validas) - 1)
                                 for i, m_col in enumerate(mini_cols):
@@ -177,17 +198,13 @@ if "loja" in query_params:
                         st.write(p.get("descricao", ""))
                         st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
                         
-                        # --- NOVO: Botão de Adicionar ao Carrinho (Substitui o link
-                        # direto do Whats) ---
                         if st.button("➕ Adicionar", key=f"add_{p['id']}", use_container_width=True):
                             pid_str = str(p['id'])
                             if pid_str in st.session_state["carrinho"]:
                                 st.session_state["carrinho"][pid_str]["qtd"] += 1
                             else:
                                 st.session_state["carrinho"][pid_str] = {
-                                    "nome": p['nome'], 
-                                    "preco": float(p['preco']), 
-                                    "qtd": 1
+                                    "nome": p['nome'], "preco": float(p['preco']), "qtd": 1
                                 }
                             st.toast(f"{p['nome']} adicionado ao carrinho!", icon="🛒")
                             st.rerun()
@@ -199,7 +216,6 @@ if "loja" in query_params:
 # MODO 2: ÁREA ADMINISTRATIVA (Login e Painel da Vendedora)
 # ---------------------------------------------------------
 
-# ESTADO 1: Ninguém logado (Mostra tela de Login)
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
     st.title("🔐 Acesso Restrito - Vendedores")
     
@@ -211,12 +227,10 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
             senha_login = st.text_input("Senha", type="password")
             
             if st.form_submit_button("Entrar", type="primary"):
-                # --- CHECAGEM DA CONTA ADM SUPREMA (PRIMEIRO) ---
                 if email_login.lower() == "admin@vitrinedigital.com" and senha_login == "admin123":
                     st.session_state["is_admin_master"] = True
                     st.rerun()
                 
-                # --- CHECAGEM NORMAL (Vendedoras) ---
                 res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
                 
                 if not res.data:
@@ -264,7 +278,6 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                         except Exception as e:
                             st.error(f"Erro ao criar conta: {e}")
 
-# ESTADO 2: Admin Supremo logado, mas ainda NÃO escolheu a loja
 elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_state:
     st.title("👑 Painel Supremo - Administração")
     st.info("Você está logado com acesso total ao sistema.")
@@ -280,8 +293,6 @@ elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_s
     if not todas_lojas:
         st.warning("Nenhuma loja cadastrada no sistema ainda.")
     else:
-        # Cria um dicionário para o Selectbox (Nome da Loja + Email facilita achar a
-        # certa)
         lojas_dict = {f"{l['nome_loja']} ({l['email']})": l for l in todas_lojas}
         loja_escolhida = st.selectbox("Lojas Cadastradas:", list(lojas_dict.keys()))
         
@@ -296,8 +307,6 @@ elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_s
         for l in todas_lojas:
             st.markdown(f"🏪 **{l['nome_loja']}** | 📧 {l['email']} | 📱 {l['whatsapp']}")
 
-# ESTADO 3: Painel da Loja Aberto (Pela vendedora normal OU pelo Admin Supremo
-# personificado)
 else:
     vid = st.session_state["vendedor_id"]
 
@@ -305,19 +314,16 @@ else:
         st.toast(st.session_state["msg_sucesso"], icon="✅")
         del st.session_state["msg_sucesso"]
 
-    # Cria colunas para colocar o título e o botão de sair na mesma linha
     c_titulo, c_sair = st.columns([3, 2])
     with c_titulo:
         st.title(f"Painel: {st.session_state['nome_loja']}")
     
     with c_sair:
-        # Se for o Admin Supremo, o botão apenas "sai" da loja e volta pro Menu Supremo
         if "is_admin_master" in st.session_state:
             if st.button("👑 Voltar ao Menu Admin", use_container_width=True):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
-        # Se for a vendedora normal, o botão faz o logout completo da plataforma
         else:
             if st.button("Sair (Logout)", use_container_width=True):
                 del st.session_state["vendedor_id"]
@@ -338,7 +344,7 @@ else:
             edit_preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=float(item['preco']))
             edit_cat = st.text_input("Categoria", value=item['categoria'])
             
-            st.caption("Para manter as fotos atuais, não envie nada. Para trocar, envie até 3 novas fotos.")
+            st.caption("Para manter fotos atuais, não envie nada. Troca máxima de 3 novas fotos.")
             edit_imagens = st.file_uploader(
                 "Substituir Fotos (Máximo 3)", type=["png", "jpg", "jpeg", "webp"], 
                 accept_multiple_files=True, key=f"up_{item['id']}"
@@ -380,8 +386,7 @@ else:
                     supabase.table("produtos").update(update_data).eq("id", item['id']).execute()
                     st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
                     st.rerun()
-                    
-                    # --- Janela Flutuante para CADASTRAR Produto ---
+
     @st.dialog("➕ Cadastrar Novo Produto")
     def modal_novo_produto():
         with st.form("form_produto", clear_on_submit=True):
@@ -427,11 +432,9 @@ else:
                         st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
-    # Trocamos de 3 para 2 abas
     tab_gerenciamento, tab_config = st.tabs(["📦 Meus Produtos", "⚙️ Configurações da Loja"])
 
     with tab_gerenciamento:
-        # NOVO: Botão grande de destaque para abrir a janela de cadastro
         if st.button("➕ Cadastrar Novo Produto", type="primary", use_container_width=True):
             modal_novo_produto()
             
@@ -480,13 +483,39 @@ else:
                 value=dados_loja.get('descricao_loja', ''),
                 help="Ex: Bolos artesanais feitos com carinho. Atendimento das 08h às 18h."
             )
+            
+            # --- NOVO: Configuração da Ordem das Categorias ---
+            st.divider()
+            st.subheader("Ordem das Categorias (Vitrine)")
+            st.caption("Limpe a caixa e vá selecionando suas categorias na ordem que deseja que seus clientes vejam (a primeira fica no topo).")
+            
+            # Pega as categorias que o lojista já tem nos produtos
+            res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
+            minhas_cats_unicas = list(set(p['categoria'] for p in res_cats.data))
+            
+            # Monta a lista atual da ordem
+            ordem_atual_str = dados_loja.get("categorias_ordem", "")
+            ordem_atual_lista = [c.strip() for c in ordem_atual_str.split(",") if c.strip() in minhas_cats_unicas]
+            for c in minhas_cats_unicas:
+                if c not in ordem_atual_lista:
+                    ordem_atual_lista.append(c)
+                    
+            nova_ordem_cats = st.multiselect(
+                "Organize as Categorias", 
+                options=minhas_cats_unicas, 
+                default=ordem_atual_lista,
+            )
 
+            st.divider()
             st.caption("Para manter a logo atual, não envie nada. Para trocar, envie uma nova foto.")
             edit_logo = st.file_uploader("Logo / Foto de Perfil da Loja", type=["png", "jpg", "jpeg", "webp"])
 
             if st.form_submit_button("Salvar Configurações"):
                 update_loja = {
-                    "nome_loja": edit_nome_loja, "descricao_loja": edit_desc_loja
+                    "nome_loja": edit_nome_loja, 
+                    "descricao_loja": edit_desc_loja,
+                    "categorias_ordem": ",".join(nova_ordem_cats)  # Salva a ordem em
+                    # string
                 }
                 upload_succeeded = True
 
@@ -503,8 +532,13 @@ else:
                         st.error(f"Erro ao enviar logo: {e}")
                         upload_succeeded = False
 
+                # ⚠️ ATENÇÃO: Isso aqui só vai funcionar após criar a coluna
+                # categorias_ordem no Supabase!
                 if upload_succeeded:
-                    supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
-                    st.session_state["nome_loja"] = edit_nome_loja
-                    st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
-                    st.rerun()
+                    try:
+                        supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
+                        st.session_state["nome_loja"] = edit_nome_loja
+                        st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"⚠️ Erro ao salvar banco de dados: Você esqueceu de criar a coluna 'categorias_ordem' no Supabase! Detalhes: {e}")
