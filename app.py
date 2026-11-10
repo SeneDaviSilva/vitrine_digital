@@ -260,10 +260,14 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                 elif len(novo_whats) < 10:
                     st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
                 else:
+                    # --- NOVO: Checa se o Nome, E-mail ou Whats já existem no banco ---
+                    res_nome = supabase.table("vendedores").select("id").eq("nome_loja", novo_nome).execute()
                     res_email = supabase.table("vendedores").select("id").eq("email", novo_email.lower()).execute()
                     res_whats = supabase.table("vendedores").select("id").eq("whatsapp", novo_whats).execute()
 
-                    if res_email.data:
+                    if res_nome.data:
+                        st.error("❌ Já existe uma loja cadastrada com este nome! Escolha outro para se diferenciar.")
+                    elif res_email.data:
                         st.error("❌ Este e-mail já está cadastrado em outra conta!")
                     elif res_whats.data:
                         st.error("❌ Este WhatsApp já está cadastrado em outra loja!")
@@ -477,25 +481,27 @@ else:
 
         with st.form("form_config_loja"):
             st.subheader("Personalizar Perfil da Vitrine")
+            
+            # --- NOVO: Inputs atualizados com Email e WhatsApp ---
             edit_nome_loja = st.text_input("Nome da Loja", value=dados_loja['nome_loja'])
+            edit_email = st.text_input("E-mail de Login", value=dados_loja['email'])
+            edit_whats = st.text_input("WhatsApp para Pedidos", value=dados_loja['whatsapp'], max_chars=13)
+            
             edit_desc_loja = st.text_area(
                 "Apresentação / Descrição da Loja",
                 value=dados_loja.get('descricao_loja', ''),
                 help="Ex: Bolos artesanais feitos com carinho. Atendimento das 08h às 18h."
             )
             
-            # --- NOVO: Configuração da Ordem das Categorias ---
             st.divider()
             st.subheader("Ordem das Categorias (Vitrine)")
             st.caption("Limpe a caixa e vá selecionando suas categorias na ordem que deseja que seus clientes vejam (a primeira fica no topo).")
             
-            # Pega as categorias que o lojista já tem nos produtos
             res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
             minhas_cats_unicas = list(set(p['categoria'] for p in res_cats.data))
             
-            # Monta a lista atual da ordem (corrigindo o erro de valor nulo)
+            # --- Correção de categorias_ordem ---
             ordem_atual_str = dados_loja.get("categorias_ordem") or ""
-            
             if ordem_atual_str:
                 ordem_atual_lista = [c.strip() for c in ordem_atual_str.split(",") if c.strip() in minhas_cats_unicas]
             else:
@@ -516,34 +522,55 @@ else:
             edit_logo = st.file_uploader("Logo / Foto de Perfil da Loja", type=["png", "jpg", "jpeg", "webp"])
 
             if st.form_submit_button("Salvar Configurações"):
-                update_loja = {
-                    "nome_loja": edit_nome_loja, 
-                    "descricao_loja": edit_desc_loja,
-                    "categorias_ordem": ",".join(nova_ordem_cats)  # Salva a ordem em
-                    # string
-                }
-                upload_succeeded = True
+                
+                # --- NOVO: Validações de segurança ---
+                if not edit_nome_loja or not edit_email or not edit_whats:
+                    st.error("Nome, E-mail e WhatsApp são obrigatórios!")
+                elif not edit_whats.isdigit():
+                    st.error("❌ O WhatsApp deve conter apenas números!")
+                elif len(edit_whats) < 10:
+                    st.error("❌ Telefone incompleto! Faltou o DDD ou números.")
+                else:
+                    # Verifica se o novo nome, email ou whats já existem EM OUTRAS LOJAS
+                    # (.neq("id", vid))
+                    res_nome_check = supabase.table("vendedores").select("id").eq("nome_loja", edit_nome_loja).neq("id", vid).execute()
+                    res_email_check = supabase.table("vendedores").select("id").eq("email", edit_email.lower()).neq("id", vid).execute()
+                    res_whats_check = supabase.table("vendedores").select("id").eq("whatsapp", edit_whats).neq("id", vid).execute()
+                    
+                    if res_nome_check.data:
+                        st.error("❌ Outra loja já usa este nome! Escolha outro.")
+                    elif res_email_check.data:
+                        st.error("❌ Este e-mail já pertence a outra loja!")
+                    elif res_whats_check.data:
+                        st.error("❌ Este WhatsApp já está vinculado a outra loja!")
+                    else:
+                        update_loja = {
+                            "nome_loja": edit_nome_loja,
+                            "email": edit_email.lower(),
+                            "whatsapp": edit_whats,
+                            "descricao_loja": edit_desc_loja,
+                            "categorias_ordem": ",".join(nova_ordem_cats)
+                        }
+                        upload_succeeded = True
 
-                if edit_logo:
-                    try:
-                        ext = edit_logo.name.split(".")[-1]
-                        nome_arquivo = f"logo_{vid}_{int(time.time())}.{ext}"
-                        supabase.storage.from_("produtos").upload(
-                            path=nome_arquivo, file=edit_logo.getvalue(),
-                            file_options={"content-type": edit_logo.type}
-                        )
-                        update_loja["logo_url"] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
-                    except Exception as e:
-                        st.error(f"Erro ao enviar logo: {e}")
-                        upload_succeeded = False
+                        if edit_logo:
+                            try:
+                                ext = edit_logo.name.split(".")[-1]
+                                nome_arquivo = f"logo_{vid}_{int(time.time())}.{ext}"
+                                supabase.storage.from_("produtos").upload(
+                                    path=nome_arquivo, file=edit_logo.getvalue(),
+                                    file_options={"content-type": edit_logo.type}
+                                )
+                                update_loja["logo_url"] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
+                            except Exception as e:
+                                st.error(f"Erro ao enviar logo: {e}")
+                                upload_succeeded = False
 
-                # ⚠️ ATENÇÃO: Isso aqui só vai funcionar após criar a coluna
-                # categorias_ordem no Supabase!
-                if upload_succeeded:
-                    try:
-                        supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
-                        st.session_state["nome_loja"] = edit_nome_loja
-                        st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"⚠️ Erro ao salvar banco de dados: Você esqueceu de criar a coluna 'categorias_ordem' no Supabase! Detalhes: {e}")
+                        if upload_succeeded:
+                            try:
+                                supabase.table("vendedores").update(update_loja).eq("id", vid).execute()
+                                st.session_state["nome_loja"] = edit_nome_loja
+                                st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"⚠️ Erro ao salvar banco de dados: {e}")
