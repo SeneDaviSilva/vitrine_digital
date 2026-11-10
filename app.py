@@ -6,8 +6,8 @@ import re
 import base64
 from supabase import create_client, Client
 
-# Configuração da página móvel
-st.set_page_config(page_title="Vitrine Digital", page_icon="🍲", layout="centered")
+# Configuração da página móvel (Removido o emoji do ícone da aba)
+st.set_page_config(page_title="Vitrine Digital", layout="centered")
 
 def init_supabase() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
@@ -44,21 +44,21 @@ if "loja" in query_params:
         decodificado = base64.urlsafe_b64decode(loja_hash.encode()).decode()
         loja_id = decodificado.replace("vitrine_", "") 
     except:
-        st.error("❌ Link da loja inválido ou corrompido!")
+        st.error("Link da loja inválido ou corrompido.")
         st.stop()
     
     res_loja = supabase.table("vendedores").select("*").eq("id", loja_id).execute()
     
     if not res_loja.data:
-        st.error("Loja não encontrada!")
+        st.error("Loja não encontrada.")
         st.stop()
 
     loja = res_loja.data[0]
 
-    @st.dialog("🛒 Seu Pedido")
+    @st.dialog("Seu Pedido")
     def modal_carrinho():
         if not st.session_state["carrinho"]:
-            st.warning("Seu carrinho está vazio! Adicione produtos da vitrine.")
+            st.warning("Seu carrinho está vazio. Adicione produtos da vitrine.")
             return
         
         total = 0
@@ -66,7 +66,7 @@ if "loja" in query_params:
             st.markdown(f"**{item['nome']}**")
             c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
             with c1:
-                if st.button("➖", key=f"dec_{pid}"):
+                if st.button("-", key=f"dec_{pid}"):
                     st.session_state["carrinho"][pid]["qtd"] -= 1
                     if st.session_state["carrinho"][pid]["qtd"] <= 0:
                         del st.session_state["carrinho"][pid]
@@ -74,7 +74,7 @@ if "loja" in query_params:
             with c2:
                 st.markdown(f"<div style='text-align:center; padding-top:8px;'>**{item['qtd']}**</div>", unsafe_allow_html=True)
             with c3:
-                if st.button("➕", key=f"inc_{pid}"):
+                if st.button("+", key=f"inc_{pid}"):
                     st.session_state["carrinho"][pid]["qtd"] += 1
                     st.rerun()
             with c4:
@@ -93,9 +93,9 @@ if "loja" in query_params:
         telefone_limpo = "".join(filter(str.isdigit, str(loja["whatsapp"])))
         wa_url = f"https://wa.me/{telefone_limpo}?text={urllib.parse.quote(texto_msg)}"
         
-        st.link_button("📲 Enviar Pedido por WhatsApp", wa_url, type="primary", use_container_width=True)
+        st.link_button("Enviar Pedido por WhatsApp", wa_url, type="primary", use_container_width=True)
         
-        if st.button("🗑️ Esvaziar Carrinho", use_container_width=True):
+        if st.button("Esvaziar Carrinho", use_container_width=True):
             st.session_state["carrinho"] = {}
             st.rerun()
 
@@ -106,12 +106,12 @@ if "loja" in query_params:
             <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 3px solid #f0f2f6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         ''', unsafe_allow_html=True)
     with col_info:
-        st.title(f"🏪 {loja['nome_loja']}")
+        st.title(f"{loja['nome_loja']}")
         if loja.get("descricao_loja"):
             st.write(loja["descricao_loja"])
         
         qtd_itens = sum(item["qtd"] for item in st.session_state["carrinho"].values())
-        if st.button(f"🛒 Ver Carrinho ({qtd_itens} itens)", type="primary", use_container_width=True):
+        if st.button(f"Ver Carrinho ({qtd_itens} itens)", type="primary", use_container_width=True):
             modal_carrinho()
             
     st.divider()
@@ -138,7 +138,7 @@ if "loja" in query_params:
         else:
             categorias_ordenadas = sorted(todas_cats)
             
-        st.write("🔍 **Buscar por Setor**")
+        st.write("**Buscar por Setor**")
         
         try:
             selecionadas = st.pills(
@@ -152,15 +152,14 @@ if "loja" in query_params:
                 placeholder="Todos os Setores (Clique para filtrar)", label_visibility="collapsed"
             )
             
-        # --- ALTERAÇÃO 30: Só exibe se houver filtro selecionado ---
         if not selecionadas:
-            st.info("👆 Selecione um ou mais setores acima para visualizar o cardápio.")
+            st.info("Selecione um ou mais setores acima para visualizar o cardápio.")
             cats_para_exibir = []
         else:
             cats_para_exibir = selecionadas
         
         for cat in cats_para_exibir:
-            st.header(f"📌 {cat}")
+            st.header(f"{cat}")
             
             produtos_cat = [p for p in produtos if p["categoria"] == cat]
             produtos_cat = sorted(produtos_cat, key=lambda x: x["nome"].lower())
@@ -197,7 +196,7 @@ if "loja" in query_params:
                         st.write(p.get("descricao", ""))
                         st.markdown(f"<span class='preco-tag'>R$ {p['preco']:.2f}</span>", unsafe_allow_html=True)
                         
-                        if st.button("➕ Adicionar", key=f"add_{p['id']}", use_container_width=True):
+                        if st.button("Adicionar", key=f"add_{p['id']}", use_container_width=True):
                             pid_str = str(p['id'])
                             if pid_str in st.session_state["carrinho"]:
                                 st.session_state["carrinho"][pid_str]["qtd"] += 1
@@ -205,7 +204,7 @@ if "loja" in query_params:
                                 st.session_state["carrinho"][pid_str] = {
                                     "nome": p['nome'], "preco": float(p['preco']), "qtd": 1
                                 }
-                            st.toast(f"{p['nome']} adicionado ao carrinho!", icon="🛒")
+                            st.toast(f"{p['nome']} adicionado ao carrinho!")
                             st.rerun()
                 st.divider()
     
@@ -216,7 +215,7 @@ if "loja" in query_params:
 # ---------------------------------------------------------
 
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
-    st.title("🔐 Acesso Restrito - Vendedores")
+    st.title("Acesso Restrito - Vendedores")
     
     aba_login, aba_cadastro = st.tabs(["Fazer Login", "Criar minha Loja"])
     
@@ -233,9 +232,9 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                 res = supabase.table("vendedores").select("*").eq("email", email_login.lower()).execute()
                 
                 if not res.data:
-                    st.error("❌ E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
+                    st.error("E-mail não cadastrado. Verifique a digitação ou crie uma conta.")
                 elif res.data[0]["senha"] != hash_senha(senha_login):
-                    st.error("❌ Senha incorreta.")
+                    st.error("Senha incorreta.")
                 else:
                     st.session_state["vendedor_id"] = res.data[0]["id"]
                     st.session_state["nome_loja"] = res.data[0]["nome_loja"]
@@ -255,20 +254,20 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                 if not (novo_nome and novo_email and novo_whats and nova_senha):
                     st.warning("Preencha todos os campos obrigatórios (*).")
                 elif not novo_whats.isdigit():
-                    st.error("❌ O campo de WhatsApp não aceita letras ou símbolos! Digite APENAS números.")
+                    st.error("O campo de WhatsApp deve conter apenas números.")
                 elif len(novo_whats) < 10:
-                    st.error("❌ Telefone incompleto! Faltou o DDD ou números do celular.")
+                    st.error("Telefone incompleto. Faltou o DDD ou números do celular.")
                 else:
                     res_nome = supabase.table("vendedores").select("id").eq("nome_loja", novo_nome).execute()
                     res_email = supabase.table("vendedores").select("id").eq("email", novo_email.lower()).execute()
                     res_whats = supabase.table("vendedores").select("id").eq("whatsapp", novo_whats).execute()
 
                     if res_nome.data:
-                        st.error("❌ Já existe uma loja cadastrada com este nome! Escolha outro para se diferenciar.")
+                        st.error("Já existe uma loja cadastrada com este nome. Escolha outro para se diferenciar.")
                     elif res_email.data:
-                        st.error("❌ Este e-mail já está cadastrado em outra conta!")
+                        st.error("Este e-mail já está cadastrado em outra conta.")
                     elif res_whats.data:
-                        st.error("❌ Este WhatsApp já está cadastrado em outra loja!")
+                        st.error("Este WhatsApp já está cadastrado em outra loja.")
                     else:
                         try:
                             novo_vendedor = {
@@ -281,7 +280,7 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                             st.error(f"Erro ao criar conta: {e}")
 
 elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_state:
-    st.title("👑 Painel Supremo - Administração")
+    st.title("Painel Supremo - Administração")
     st.info("Você está logado com acesso total ao sistema.")
     
     if st.button("Sair (Logout do Sistema)"):
@@ -307,13 +306,13 @@ elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_s
         st.divider()
         st.markdown(f"### Total de contas ativas: {len(todas_lojas)}")
         for l in todas_lojas:
-            st.markdown(f"🏪 **{l['nome_loja']}** | 📧 {l['email']} | 📱 {l['whatsapp']}")
+            st.markdown(f"**{l['nome_loja']}** | {l['email']} | {l['whatsapp']}")
 
 else:
     vid = st.session_state["vendedor_id"]
 
     if "msg_sucesso" in st.session_state:
-        st.toast(st.session_state["msg_sucesso"], icon="✅")
+        st.toast(st.session_state["msg_sucesso"])
         del st.session_state["msg_sucesso"]
 
     c_titulo, c_sair = st.columns([3, 2])
@@ -322,7 +321,7 @@ else:
     
     with c_sair:
         if "is_admin_master" in st.session_state:
-            if st.button("👑 Voltar ao Menu Admin", use_container_width=True):
+            if st.button("Voltar ao Menu Admin", use_container_width=True):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
@@ -338,13 +337,26 @@ else:
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
     st.success(f"**Seu Link Exclusivo para clientes:**\n\n{link_vitrine}")
 
-    @st.dialog("✏️ Editar Produto")
+    @st.dialog("Editar Produto")
     def modal_editar_produto(item):
+        # Busca as categorias já existentes deste lojista
+        res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
+        categorias_existentes = sorted(list(set(c["categoria"] for c in res_cats.data)))
+        opcoes_categoria = categorias_existentes + ["+ Criar nova categoria"]
+        
+        idx_padrao = opcoes_categoria.index(item['categoria']) if item['categoria'] in opcoes_categoria else 0
+
         with st.form(f"form_edit_{item['id']}", clear_on_submit=False):
             edit_nome = st.text_input("Nome", value=item['nome'])
             edit_desc = st.text_area("Descrição", value=item.get('descricao', ''))
             edit_preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=float(item['preco']))
-            edit_cat = st.text_input("Categoria", value=item['categoria'])
+            
+            # Novo menu inteligente de seleção
+            cat_selecionada = st.selectbox("Categoria *", options=opcoes_categoria, index=idx_padrao)
+            if cat_selecionada == "+ Criar nova categoria":
+                edit_cat = st.text_input("Nome da Nova Categoria *")
+            else:
+                edit_cat = cat_selecionada
             
             st.caption("Para manter fotos atuais, não envie nada. Troca máxima de 3 novas fotos.")
             edit_imagens = st.file_uploader(
@@ -356,7 +368,7 @@ else:
                 if not edit_nome or not edit_cat or edit_preco <= 0:
                     st.error("Preencha Nome, Preço e Categoria.")
                 elif len(edit_imagens) > 3:
-                    st.error("❌ Envie no máximo 3 fotos!")
+                    st.error("Envie no máximo 3 fotos.")
                 else:
                     update_data = {
                         "nome": edit_nome, "descricao": edit_desc,
@@ -389,13 +401,22 @@ else:
                     st.session_state["msg_sucesso"] = "Alterações salvas com sucesso!"
                     st.rerun()
 
-    @st.dialog("➕ Cadastrar 1 Novo Produto")
+    @st.dialog("Cadastrar Novo Produto")
     def modal_novo_produto():
+        res_cats = supabase.table("produtos").select("categoria").eq("vendedor_id", vid).execute()
+        categorias_existentes = sorted(list(set(c["categoria"] for c in res_cats.data)))
+        opcoes_categoria = categorias_existentes + ["+ Criar nova categoria"]
+
         with st.form("form_produto", clear_on_submit=True):
             nome = st.text_input("Nome do Produto *")
             descricao = st.text_area("Descrição (Ingredientes, tamanho)")
             preco = st.number_input("Preço (R$)", min_value=0.0, step=0.50, format="%.2f", value=None)
-            categoria = st.text_input("Categoria *")
+            
+            cat_selecionada = st.selectbox("Categoria *", options=opcoes_categoria)
+            if cat_selecionada == "+ Criar nova categoria":
+                categoria = st.text_input("Nome da Nova Categoria *")
+            else:
+                categoria = cat_selecionada
 
             imagens_arquivo = st.file_uploader("Fotos do Produto (Máximo 3)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
 
@@ -403,7 +424,7 @@ else:
                 if not nome or not categoria or preco is None or preco <= 0:
                     st.error("Preencha os campos obrigatórios (*).")
                 elif len(imagens_arquivo) > 3:
-                    st.error("❌ Você pode enviar no máximo 3 fotos por produto!")
+                    st.error("Você pode enviar no máximo 3 fotos por produto.")
                 else:
                     urls_geradas = [None, None, None]
                     upload_succeeded = True
@@ -419,7 +440,7 @@ else:
                                 )
                                 urls_geradas[idx] = supabase.storage.from_("produtos").get_public_url(nome_arquivo)
                             except Exception as err:
-                                st.error(f"Erro ao enviar foto {idx+1}: {err}")
+                                st.error(f"Erro ao enviar foto: {err}")
                                 upload_succeeded = False
                                 break
 
@@ -434,8 +455,7 @@ else:
                         st.session_state["msg_sucesso"] = "Novo produto cadastrado com sucesso!"
                         st.rerun()
 
-    # --- ALTERAÇÃO 31: Novo Modal no Estilo Pokémon Showdown ---
-    @st.dialog("⚡ Cadastro Rápido em Massa")
+    @st.dialog("Cadastro Rápido em Massa")
     def modal_cadastro_massa():
         st.markdown("Copie e cole seus produtos. **Deixe sempre uma linha em branco entre cada produto.**")
         st.code("Bolo de Cenoura\nPreço: 15.50\nCategoria: Bolos\nDescrição: Cobertura de chocolate\n\nCoxinha de Frango\nPreço: 7.00\nCategoria: Salgados", language="text")
@@ -448,7 +468,6 @@ else:
                 return
                 
             produtos_para_inserir = []
-            # Separa os produtos ignorando espaços vazios extras
             blocos = re.split(r'\n\s*\n', texto_importacao.strip())
             
             erros = 0
@@ -493,18 +512,17 @@ else:
                     st.session_state["msg_sucesso"] += f" ({erros} ignorados por erro de formatação)."
                 st.rerun()
             else:
-                st.error("❌ Nenhum produto válido encontrado. Verifique se digitou o 'Preço:' corretamente.")
+                st.error("Nenhum produto válido encontrado. Verifique se digitou o 'Preço:' corretamente.")
 
-    tab_gerenciamento, tab_config = st.tabs(["📦 Meus Produtos", "⚙️ Configurações da Loja"])
+    tab_gerenciamento, tab_config = st.tabs(["Meus Produtos", "Configurações da Loja"])
 
     with tab_gerenciamento:
-        # Divide os botões em duas colunas para a vendedora escolher
         c_add1, c_add2 = st.columns(2)
         with c_add1:
-            if st.button("➕ Cadastrar Novo", type="primary", use_container_width=True):
+            if st.button("Cadastrar Novo", type="primary", use_container_width=True):
                 modal_novo_produto()
         with c_add2:
-            if st.button("⚡ Cadastro em Massa (Texto)", type="secondary", use_container_width=True):
+            if st.button("Cadastro em Massa (Texto)", type="secondary", use_container_width=True):
                 modal_cadastro_massa()
             
         st.divider()
@@ -518,7 +536,7 @@ else:
             categorias_admin = sorted(list(set(p["categoria"] for p in meus_produtos)))
             
             for cat in categorias_admin:
-                st.markdown(f"#### 📁 {cat}") 
+                st.markdown(f"#### {cat}") 
                 produtos_cat_admin = [p for p in meus_produtos if p["categoria"] == cat]
                 produtos_cat_admin = sorted(produtos_cat_admin, key=lambda x: x["nome"].lower())
                 
@@ -532,10 +550,10 @@ else:
                             supabase.table("produtos").update({"disponivel": novo_status}).eq("id", item["id"]).execute()
                             st.rerun()
                     with c3:
-                        if st.button("✏️", key=f"btn_edit_{item['id']}", help="Editar Produto"):
+                        if st.button("Editar", key=f"btn_edit_{item['id']}"):
                             modal_editar_produto(item)
                     with c4:
-                        if st.button("🗑️", key=f"del_{item['id']}", help="Excluir Produto"):
+                        if st.button("Excluir", key=f"del_{item['id']}"):
                             supabase.table("produtos").delete().eq("id", item["id"]).execute()
                             st.rerun()
                     st.divider()
@@ -585,22 +603,22 @@ else:
 
             if st.form_submit_button("Salvar Configurações"):
                 if not edit_nome_loja or not edit_email or not edit_whats:
-                    st.error("Nome, E-mail e WhatsApp são obrigatórios!")
+                    st.error("Nome, E-mail e WhatsApp são obrigatórios.")
                 elif not edit_whats.isdigit():
-                    st.error("❌ O WhatsApp deve conter apenas números!")
+                    st.error("O WhatsApp deve conter apenas números.")
                 elif len(edit_whats) < 10:
-                    st.error("❌ Telefone incompleto! Faltou o DDD ou números.")
+                    st.error("Telefone incompleto. Faltou o DDD ou números.")
                 else:
                     res_nome_check = supabase.table("vendedores").select("id").eq("nome_loja", edit_nome_loja).neq("id", vid).execute()
                     res_email_check = supabase.table("vendedores").select("id").eq("email", edit_email.lower()).neq("id", vid).execute()
                     res_whats_check = supabase.table("vendedores").select("id").eq("whatsapp", edit_whats).neq("id", vid).execute()
                     
                     if res_nome_check.data:
-                        st.error("❌ Outra loja já usa este nome! Escolha outro.")
+                        st.error("Outra loja já usa este nome. Escolha outro.")
                     elif res_email_check.data:
-                        st.error("❌ Este e-mail já pertence a outra loja!")
+                        st.error("Este e-mail já pertence a outra loja.")
                     elif res_whats_check.data:
-                        st.error("❌ Este WhatsApp já está vinculado a outra loja!")
+                        st.error("Este WhatsApp já está vinculado a outra loja.")
                     else:
                         update_loja = {
                             "nome_loja": edit_nome_loja,
@@ -631,4 +649,4 @@ else:
                                 st.session_state["msg_sucesso"] = "Perfil da loja atualizado com sucesso!"
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"⚠️ Erro ao salvar banco de dados: {e}")
+                                st.error(f"Erro ao salvar banco de dados: {e}")
