@@ -1,5 +1,6 @@
 import urllib.parse
 import hashlib
+import html
 import streamlit as st
 import time
 import re
@@ -17,30 +18,39 @@ supabase = init_supabase()
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
-# --- ESTILIZAÇÃO MINIMALISTA ADAPTÁVEL (Claro/Escuro) ---
+# --- ESTILIZAÇÃO MINIMALISTA E OCULTAÇÃO DO SCROLLBAR (Ideia 38) ---
 st.markdown("""
     <style>
-    /* Configuração global - removido o background forçado para respeitar o tema */
+    /* Ocultar barra de rolagem para navegadores WebKit (Chrome, Safari, etc) */
+    ::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    /* Ocultar barra de rolagem global, mantendo a funcionalidade do scroll */
+    * {
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important; /* IE e Edge */
+    }
+
+    /* Configuração global */
     .stApp { 
         max-width: 600px; 
         margin: 0 auto; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     
-    /* Títulos limpos que respeitam a cor do tema nativo */
+    /* Títulos limpos */
     h1, h2, h3 {
         letter-spacing: -0.5px;
         font-weight: 600;
     }
     
-    /* Tags de preço minimalistas */
     .preco-tag { 
         font-size: 1.15rem; 
         font-weight: 600; 
         letter-spacing: -0.5px;
     }
 
-    /* Imagens com borda sutil adaptável (rgba transparente em vez de cor fixa) */
     div[data-testid="stImage"] img {
         object-fit: cover !important;
         aspect-ratio: 1 / 1 !important;
@@ -48,7 +58,6 @@ st.markdown("""
         border: 1px solid rgba(128, 128, 128, 0.2) !important;
     }
     
-    /* Botões primários modernos */
     .stButton button[kind="primary"], div.stButton > button:first-child {
         border-radius: 6px !important;
         font-weight: 500 !important;
@@ -58,7 +67,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# MODO 1: VITRINE PÚBLICA DO CLIENTE (Via parâmetro na URL)
+# MODO 1: VITRINE PÚBLICA DO CLIENTE
 # ---------------------------------------------------------
 query_params = st.query_params
 if "loja" in query_params:
@@ -133,9 +142,11 @@ if "loja" in query_params:
             <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         ''', unsafe_allow_html=True)
     with col_info:
-        st.title(f"{loja['nome_loja']}")
+        nome_loja_html = html.escape(loja["nome_loja"], quote=True)
+        st.markdown(f"<h2 style='margin-bottom: 0; padding-bottom: 0;'>{nome_loja_html}</h2>", unsafe_allow_html=True)
         if loja.get("descricao_loja"):
-            st.write(loja["descricao_loja"])
+            descricao_loja_html = html.escape(loja["descricao_loja"], quote=True)
+            st.markdown(f"<div style='opacity: 0.7; font-size: 0.95rem; margin-top: 4px; margin-bottom: 12px;'>{descricao_loja_html}</div>", unsafe_allow_html=True)
         
         qtd_itens = sum(item["qtd"] for item in st.session_state["carrinho"].values())
         if st.button(f"Ver Carrinho ({qtd_itens})", type="primary", use_container_width=True):
@@ -236,6 +247,13 @@ if "loja" in query_params:
                             st.rerun()
                 st.markdown("<hr style='margin: 1em 0; border: none; border-top: 1px solid rgba(128,128,128,0.2);'/>", unsafe_allow_html=True)
     
+    # --- NOVO: Rodapé da Vitrine Pública ---
+    st.markdown("""
+        <div style="text-align: center; margin-top: 50px; margin-bottom: 20px; opacity: 0.3;">
+            <span style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">POWERED BY VITRINE DIGITAL</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
 # ---------------------------------------------------------
@@ -243,7 +261,13 @@ if "loja" in query_params:
 # ---------------------------------------------------------
 
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
-    st.title("Acesso Restrito")
+    # --- NOVO: Tela Inicial de Login Profissional ---
+    st.markdown("""
+        <div style="text-align: center; padding: 2rem 0 1.5rem 0;">
+            <h1 style="font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 0;">Vitrine Digital.</h1>
+            <p style="opacity: 0.6; font-size: 1.05rem; margin-top: 5px;">Plataforma de gestão para o seu negócio.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     aba_login, aba_cadastro = st.tabs(["Entrar", "Criar Conta"])
     
@@ -308,7 +332,12 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
                             st.error(f"Erro: {e}")
 
 elif "is_admin_master" in st.session_state and "vendedor_id" not in st.session_state:
-    st.title("Painel Administrativo")
+    st.markdown("""
+        <div style="padding: 1rem 0;">
+            <h2 style="margin-bottom: 0;">Vitrine Digital</h2>
+            <p style="opacity: 0.6;">Administração Global do Sistema</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     if st.button("Sair"):
         del st.session_state["is_admin_master"]
@@ -342,18 +371,21 @@ else:
         st.toast(st.session_state["msg_sucesso"])
         del st.session_state["msg_sucesso"]
 
-    c_titulo, c_sair = st.columns([3, 2])
+    # --- NOVO: Cabeçalho Limpo para o Painel de Gestão ---
+    c_titulo, c_sair = st.columns([3, 1])
     with c_titulo:
-        st.title(f"{st.session_state['nome_loja']}")
+        nome_loja_html = html.escape(st.session_state["nome_loja"], quote=True)
+        st.markdown(f"<h2 style='margin-bottom: 0; padding-bottom: 0;'>{nome_loja_html}</h2>", unsafe_allow_html=True)
+        st.markdown("<div style='opacity: 0.6; font-size: 0.95rem; margin-bottom: 12px;'>Painel de Gestão da Loja</div>", unsafe_allow_html=True)
     
     with c_sair:
         if "is_admin_master" in st.session_state:
-            if st.button("Voltar ao Admin", use_container_width=True):
+            if st.button("Sair (Admin)"):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
         else:
-            if st.button("Sair", use_container_width=True):
+            if st.button("Sair"):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
@@ -362,7 +394,15 @@ else:
     id_string = f"vitrine_{vid}"
     id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
-    st.info(f"Link público: {link_vitrine}")
+
+    # --- NOVO: Exibição do Link Público mais moderna e integrada ---
+    link_vitrine_html = html.escape(link_vitrine, quote=True)
+    st.markdown(f"""
+        <div style="background-color: rgba(128,128,128,0.05); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(128,128,128,0.1); margin-bottom: 24px;">
+            <span style="font-size: 0.85rem; opacity: 0.7;">Compartilhe este link com seus clientes:</span><br>
+            <a href="{link_vitrine_html}" target="_blank" style="font-weight: 500; text-decoration: none; color: #2e7d32;">{link_vitrine_html}</a>
+        </div>
+    """, unsafe_allow_html=True)
 
     @st.dialog("Editar Produto")
     def modal_editar_produto(item):
