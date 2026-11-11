@@ -55,6 +55,15 @@ if "loja" in query_params:
 
     loja = res_loja.data[0]
 
+    # --- FUNÇÕES AUXILIARES PARA O CARRINHO NÃO FECHAR ---
+    def alterar_qtd(pid, delta):
+        st.session_state["carrinho"][pid]["qtd"] += delta
+        if st.session_state["carrinho"][pid]["qtd"] <= 0:
+            del st.session_state["carrinho"][pid]
+
+    def esvaziar_carrinho():
+        st.session_state["carrinho"] = {}
+
     @st.dialog("Seu Pedido")
     def modal_carrinho():
         if not st.session_state["carrinho"]:
@@ -63,27 +72,27 @@ if "loja" in query_params:
         
         total = 0
         for pid, item in list(st.session_state["carrinho"].items()):
-            st.markdown(f"**{item['nome']}**")
+            # Título do item mais compacto
+            st.markdown(f"<div style='margin-bottom: 4px; font-weight: 600; color: #111;'>{item['nome']}</div>", unsafe_allow_html=True)
+            
             c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
             with c1:
-                if st.button("-", key=f"dec_{pid}"):
-                    st.session_state["carrinho"][pid]["qtd"] -= 1
-                    if st.session_state["carrinho"][pid]["qtd"] <= 0:
-                        del st.session_state["carrinho"][pid]
-                    st.rerun()
+                # O botão agora usa on_click em vez de st.rerun()
+                st.button("-", key=f"dec_{pid}", on_click=alterar_qtd, args=(pid, -1), use_container_width=True)
             with c2:
-                st.markdown(f"<div style='text-align:center; padding-top:8px;'>**{item['qtd']}**</div>", unsafe_allow_html=True)
+                # Removidos os "**" e ajustado o tamanho da fonte
+                st.markdown(f"<div style='text-align:center; padding-top:6px; font-weight:600; font-size:1.1rem;'>{item['qtd']}</div>", unsafe_allow_html=True)
             with c3:
-                if st.button("+", key=f"inc_{pid}"):
-                    st.session_state["carrinho"][pid]["qtd"] += 1
-                    st.rerun()
+                st.button("+", key=f"inc_{pid}", on_click=alterar_qtd, args=(pid, 1), use_container_width=True)
             with c4:
-                st.markdown(f"<div style='text-align:right; padding-top:8px; color:#2e7d32; font-weight:bold;'>R$ {(item['preco'] * item['qtd']):.2f}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:right; padding-top:6px; color:#111111; font-weight:600;'>R$ {(item['preco'] * item['qtd']):.2f}</div>", unsafe_allow_html=True)
             
             total += item['preco'] * item['qtd']
-            st.divider()
             
-        st.subheader(f"Total: R$ {total:.2f}")
+            # Linha divisória fina e com margens curtas (substitui o st.divider longo)
+            st.markdown("<hr style='margin: 0.5em 0; border: none; border-top: 1px solid #f0f0f0;'/>", unsafe_allow_html=True)
+            
+        st.markdown(f"<h3 style='margin-top: 0;'>Total: R$ {total:.2f}</h3>", unsafe_allow_html=True)
         
         texto_msg = "Olá! Gostaria de fazer o seguinte pedido:\n\n"
         for item in st.session_state["carrinho"].values():
@@ -95,10 +104,10 @@ if "loja" in query_params:
         
         st.link_button("Enviar Pedido por WhatsApp", wa_url, type="primary", use_container_width=True)
         
-        if st.button("Esvaziar Carrinho", use_container_width=True):
-            st.session_state["carrinho"] = {}
-            st.rerun()
+        # Botão de esvaziar também usando on_click
+        st.button("Esvaziar Carrinho", on_click=esvaziar_carrinho, use_container_width=True)
 
+    # Cabeçalho Minimalista
     col_logo, col_info = st.columns([1, 3])
     with col_logo:
         logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
