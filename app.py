@@ -18,7 +18,7 @@ supabase = init_supabase()
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
-# --- ESTILIZAÇÃO MINIMALISTA E OCULTAÇÃO DO SCROLLBAR (Ideia 38) ---
+# --- ESTILIZAÇÃO MINIMALISTA ---
 st.markdown("""
     <style>
     /* Ocultar barra de rolagem para navegadores WebKit (Chrome, Safari, etc) */
@@ -371,7 +371,7 @@ else:
         st.toast(st.session_state["msg_sucesso"])
         del st.session_state["msg_sucesso"]
 
-    # --- Cabeçalho Limpo com Logo do Lojista ---
+    # --- Cabeçalho com Logo do Lojista ---
     res_header_loja = supabase.table("vendedores").select("logo_url").eq("id", vid).execute()
     logo_admin = res_header_loja.data[0].get("logo_url") if res_header_loja.data else None
     img_src = logo_admin if logo_admin else "https://via.placeholder.com/150?text=Loja"
@@ -406,7 +406,7 @@ else:
     id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
 
-    # --- Exibição do Link Público mais moderna e integrada ---
+    # --- Exibição do Link Público mais moderno e integrada ---
     link_vitrine_html = html.escape(link_vitrine, quote=True)
     st.markdown(f"""
         <div style="background-color: rgba(128,128,128,0.05); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(128,128,128,0.1); margin-bottom: 24px;">
