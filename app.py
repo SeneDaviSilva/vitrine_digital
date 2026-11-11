@@ -264,7 +264,7 @@ if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session
     # --- Tela Inicial de Login Profissional ---
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0 1.5rem 0;">
-            <h1 style="font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 0;">Vitrine Digital.</h1>
+            <h2 style="font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 0;">Vitrine Digital</h2>
             <p style="opacity: 0.6; font-size: 1.05rem; margin-top: 5px;">Plataforma de gestão para o seu negócio.</p>
         </div>
     """, unsafe_allow_html=True)
