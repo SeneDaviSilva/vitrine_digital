@@ -110,9 +110,10 @@ if "loja" in query_params:
     # Cabeçalho Minimalista
     col_logo, col_info = st.columns([1, 3])
     with col_logo:
-        logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Sua+Logo"
+        logo = loja.get("logo_url") if loja.get("logo_url") else "https://via.placeholder.com/150?text=Logo"
+        # ALTERAÇÃO 36: Borda ultrafina e sombra super leve para design limpo
         st.markdown(f'''
-            <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 3px solid #f0f2f6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <img src="{logo}" style="width:100%; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 1px solid #f4f4f4; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
         ''', unsafe_allow_html=True)
     with col_info:
         st.title(f"{loja['nome_loja']}")
@@ -528,10 +529,10 @@ else:
     with tab_gerenciamento:
         c_add1, c_add2 = st.columns(2)
         with c_add1:
-            if st.button("Cadastrar Novo", type="primary", use_container_width=True):
+            if st.button("Novo Produto", type="primary", use_container_width=True):
                 modal_novo_produto()
         with c_add2:
-            if st.button("Cadastro em Massa (Texto)", type="secondary", use_container_width=True):
+            if st.button("Importar em Massa", use_container_width=True):
                 modal_cadastro_massa()
             
         st.divider()
@@ -540,7 +541,7 @@ else:
         meus_produtos = res_meus_prod.data
 
         if not meus_produtos:
-            st.info("Você ainda não tem produtos cadastrados.")
+            st.info("Nenhum produto cadastrado.")
         else:
             categorias_admin = sorted(list(set(p["categoria"] for p in meus_produtos)))
             
@@ -550,9 +551,20 @@ else:
                 produtos_cat_admin = sorted(produtos_cat_admin, key=lambda x: x["nome"].lower())
                 
                 for item in produtos_cat_admin:
-                    c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
+                    # Ajustei as proporções das colunas para a imagem caber bem
+                    c1, c2, c3, c4 = st.columns([3.5, 1.5, 1, 1])
                     with c1:
-                        st.write(f"**{item['nome']}** - R$ {item['preco']:.2f}")
+                        # ALTERAÇÃO 35: Miniatura elegante ao lado do nome do produto
+                        img_url = item.get("imagem_url") or "https://via.placeholder.com/150?text=Sem+Foto"
+                        st.markdown(f"""
+                            <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 8px;'>
+                                <img src="{img_url}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #eaeaea;">
+                                <div style="line-height: 1.2;">
+                                    <div style="font-weight: 600; color: #111;">{item['nome']}</div>
+                                    <div style="color: #666; font-size: 0.9rem;">R$ {item['preco']:.2f}</div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
                     with c2:
                         novo_status = st.toggle("Ativo", value=item["disponivel"], key=f"status_{item['id']}")
                         if novo_status != item["disponivel"]:
