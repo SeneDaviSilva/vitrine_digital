@@ -247,7 +247,7 @@ if "loja" in query_params:
                             st.rerun()
                 st.markdown("<hr style='margin: 1em 0; border: none; border-top: 1px solid rgba(128,128,128,0.2);'/>", unsafe_allow_html=True)
     
-    # --- NOVO: Rodapé da Vitrine Pública ---
+    # --- Rodapé da Vitrine Pública ---
     st.markdown("""
         <div style="text-align: center; margin-top: 50px; margin-bottom: 20px; opacity: 0.3;">
             <span style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">POWERED BY VITRINE DIGITAL</span>
@@ -261,7 +261,7 @@ if "loja" in query_params:
 # ---------------------------------------------------------
 
 if "vendedor_id" not in st.session_state and "is_admin_master" not in st.session_state:
-    # --- NOVO: Tela Inicial de Login Profissional ---
+    # --- Tela Inicial de Login Profissional ---
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0 1.5rem 0;">
             <h1 style="font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 0;">Vitrine Digital.</h1>
@@ -371,21 +371,32 @@ else:
         st.toast(st.session_state["msg_sucesso"])
         del st.session_state["msg_sucesso"]
 
-    # --- NOVO: Cabeçalho Limpo para o Painel de Gestão ---
-    c_titulo, c_sair = st.columns([3, 1])
+    # --- Cabeçalho Limpo com Logo do Lojista ---
+    res_header_loja = supabase.table("vendedores").select("logo_url").eq("id", vid).execute()
+    logo_admin = res_header_loja.data[0].get("logo_url") if res_header_loja.data else None
+    img_src = logo_admin if logo_admin else "https://via.placeholder.com/150?text=Loja"
+    img_src_html = html.escape(img_src, quote=True)
+    nome_loja_html = html.escape(st.session_state["nome_loja"], quote=True)
+
+    c_logo, c_titulo, c_sair = st.columns([1, 2.5, 1.5])
+    with c_logo:
+        st.markdown(f'''
+            <img src="{img_src_html}" style="width: 100%; max-width: 75px; border-radius: 50%; object-fit: cover; aspect-ratio: 1/1; border: 1px solid rgba(128, 128, 128, 0.2); margin-top: 5px;">
+        ''', unsafe_allow_html=True)
+
     with c_titulo:
-        nome_loja_html = html.escape(st.session_state["nome_loja"], quote=True)
-        st.markdown(f"<h2 style='margin-bottom: 0; padding-bottom: 0;'>{nome_loja_html}</h2>", unsafe_allow_html=True)
-        st.markdown("<div style='opacity: 0.6; font-size: 0.95rem; margin-bottom: 12px;'>Painel de Gestão da Loja</div>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='margin-bottom: 0; padding-bottom: 0; margin-top: 0;'>{nome_loja_html}</h2>", unsafe_allow_html=True)
+        st.markdown("<div style='opacity: 0.6; font-size: 0.95rem; margin-bottom: 12px;'>Painel de Gestão</div>", unsafe_allow_html=True)
     
     with c_sair:
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) # Espaçamento para alinhar o botão
         if "is_admin_master" in st.session_state:
-            if st.button("Sair (Admin)"):
+            if st.button("Sair (Admin)", use_container_width=True):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
         else:
-            if st.button("Sair"):
+            if st.button("Sair", use_container_width=True):
                 del st.session_state["vendedor_id"]
                 del st.session_state["nome_loja"]
                 st.rerun()
@@ -395,7 +406,7 @@ else:
     id_criptografado = base64.urlsafe_b64encode(id_string.encode()).decode()
     link_vitrine = f"{URL_BASE}/?loja={id_criptografado}"
 
-    # --- NOVO: Exibição do Link Público mais moderna e integrada ---
+    # --- Exibição do Link Público mais moderna e integrada ---
     link_vitrine_html = html.escape(link_vitrine, quote=True)
     st.markdown(f"""
         <div style="background-color: rgba(128,128,128,0.05); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(128,128,128,0.1); margin-bottom: 24px;">
