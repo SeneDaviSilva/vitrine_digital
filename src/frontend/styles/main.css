@@ -1,0 +1,40 @@
+/* Ocultar barra de rolagem mantendo a funcionalidade de scroll */
+::-webkit-scrollbar {
+    display: none !important;
+}
+
+* {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+/* Layout centralizado mobile-first compatível com Light e Dark Mode */
+.stApp {
+    max-width: 600px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+h1, h2, h3 {
+    letter-spacing: -0.5px;
+    font-weight: 600;
+}
+
+.preco-tag {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+}
+
+div[data-testid="stImage"] img {
+    object-fit: cover !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(128, 128, 128, 0.2) !important;
+}
+
+.stButton button[kind="primary"], div.stButton > button:first-child {
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.2px;
+}
