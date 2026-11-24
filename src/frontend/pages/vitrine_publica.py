@@ -127,14 +127,15 @@ def render_vitrine_publica(
             "Filtro",
             options=categorias_ordenadas,
             format_func=lambda x: f"{x} ({cat_counts[x]})",
-            placeholder="Selecione as categorias...",
+            placeholder="Todas as categorias (toque para filtrar)...",
             label_visibility="collapsed",
         )
 
-    if not selecionadas:
-        st.info("Selecione um ou mais filtros acima para exibir os itens.")
-        render_rodape_vitrine()
-        return
+    categorias_exibir = (
+        [c for c in categorias_ordenadas if c in selecionadas]
+        if selecionadas
+        else categorias_ordenadas
+    )
 
     def _adicionar_ao_carrinho(produto: Produto) -> None:
         pid_str = str(produto.id)
@@ -149,7 +150,7 @@ def render_vitrine_publica(
         st.toast(f"{produto.nome} adicionado.")
         st.rerun()
 
-    for cat in selecionadas:
+    for cat in categorias_exibir:
         st.markdown(f"### {cat}")
         produtos_cat = sorted(
             [p for p in produtos if p.categoria == cat],
